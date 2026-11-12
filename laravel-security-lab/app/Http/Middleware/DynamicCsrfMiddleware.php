@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Support\SecurityConfig;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 
-class DynamicCsrfMiddleware extends ValidateCsrfToken
+class DynamicCsrfMiddleware extends PreventRequestForgery
 {
     /**
      * Lorsque SECURITY_HARDENED=false, la route de modification des notes est

@@ -7,7 +7,7 @@ use App\Http\Middleware\SyncSecurityModeMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 
@@ -27,7 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 SecurityHeadersMiddleware::class,
             ],
             replace: [
-                ValidateCsrfToken::class => DynamicCsrfMiddleware::class,
+                PreventRequestForgery::class => DynamicCsrfMiddleware::class,
             ],
         );
 
