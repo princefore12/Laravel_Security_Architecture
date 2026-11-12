@@ -49,10 +49,10 @@
 1. **Ouvrir l'onglet « Annuaire »** (`http://127.0.0.1:8000/annuaire`) :
    - Tapez une simple apostrophe `'` dans le champ *« Matricule ou nom »* → **Effet WAHOU** : avec `APP_DEBUG=true`, Laravel affiche l'exception SQL et la requête complète exécutée contre MariaDB !
    - Revenez en arrière sur `/annuaire` et collez :
-     `' AND 1=0 UNION SELECT id, email, password, legacy_md5, role FROM users -- `
-     *(espace obligatoire après `-- `)* → **Effet WAHOU** : la table de l'annuaire exfiltre en direct les e-mails, les empreintes **`bcrypt` (`$2y$12$...`)**, l'ancien **`MD5`** (`9c9b18b4...`) et les rôles (`admin`, `student`) !
+     `' AND 1=0 UNION SELECT id, email, password, legacy_md5, role FROM users -- '`
+     *(espace obligatoire après `-- ` suivi de `'` pour que `TrimStrings` ne le supprime pas)* → **Effet WAHOU** : la table de l'annuaire exfiltre en direct les e-mails, les empreintes **`bcrypt` (`$2y$12$...`)**, l'ancien **`MD5`** (`9c9b18b4...`) et les rôles (`admin`, `student`) !
 2. **Contournement de connexion (Auth Bypass)** :
-   - Cliquez sur **« Se connecter »** (`/connexion`), saisissez **`admin@loko.ci' -- `** avec un mot de passe quelconque (`123456`) → vous entrez directement dans la session **`Prof. M. Camara • Administrateur`** avec le menu **`Administration`** débloqué !
+   - Cliquez sur **« Se connecter »** (`/connexion`), saisissez **`admin@loko.ci'#`** (ou `admin@loko.ci' -- '`) avec un mot de passe quelconque (`123456`) → vous entrez directement dans la session **`Prof. M. Camara • Administrateur`** avec le menu **`Administration`** débloqué !
    - Cliquez sur **Déconnexion** et expliquez comment **Eloquent / PDO (`?`)** corrigera tout cela lors du durcissement `.env`.
 3. **Transition** :
    > « Protéger la requête SQL de lecture est indispensable, mais que se passe-t-il lorsqu'un étudiant manipule directement le formulaire HTML dans son navigateur (`F12`) pour modifier son rôle en base de données ? Je passe la parole à **Siby Mody** pour le **Mass Assignment**. »

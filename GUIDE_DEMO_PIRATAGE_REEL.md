@@ -52,9 +52,9 @@ Vérifiez que dans `laravel-security-lab/.env`, vous avez bien **`SECURITY_HARDE
    - Allez sur **`Se connecter`** (`/connexion`).
    - Dans **Adresse e-mail**, tapez :
      ```text
-     admin@loko.ci' -- 
+     admin@loko.ci'#
      ```
-     *(avec l'espace final après `-- `)* et tapez n'importe quel mot de passe bidon (`123456`).
+     *(Le `#` est un commentaire direct en MariaDB ; il fonctionne aussi avec `admin@loko.ci' -- '` — sans le `'` final, le middleware `TrimStrings` de Laravel supprime l'espace après `--`.)* et tapez n'importe quel mot de passe bidon (`123456`).
    - **Constat en direct** : vous êtes authentifié instantanément comme **`Prof. M. Camara • Administrateur`** et le menu jaune **`Administration`** apparaît ! Cliquez sur **Déconnexion** avant l'étape 2.
 
 ---
@@ -141,7 +141,7 @@ Rejouez rapidement chaque geste devant le prof pour prouver la protection native
 3. **Mass Assignment (Siby Mody)** : Connecté en étudiant (`naomi.boin@loko.ci` ou après réinitialisation sur `mody.siby@loko.ci`), injectez `<input type="hidden" name="role" value="admin">` via `F12`, validez → le badge reste strictement **`Étudiant`**.
 4. **SQLi & Brute-Force (Sore & Noël)** :
    - Sur `/annuaire`, `' UNION SELECT ...` renvoie **0 résultat**, et `'` ne provoque aucune erreur SQL.
-   - Sur `/connexion`, `admin@loko.ci' -- ` renvoie **Identifiant ou mot de passe incorrect (`HTTP 401`)**.
+   - Sur `/connexion`, `admin@loko.ci'#` renvoie **Identifiant ou mot de passe incorrect (`HTTP 401`)**.
    - Validez 5 mauvais mots de passe rapides, puis au **6e essai** → **blocage `HTTP 429 Too Many Requests`** à l'écran et dans `F12 → Network`.
 5. **CSRF (Traoré Charifat Leyla)** : Connecté en Admin (`admin@loko.ci`), allez sur `http://127.0.0.1:8001` et cliquez sur le bouton piège → Laravel bloque net la requête forgée avec **`419 | PAGE EXPIRED`** !
 
