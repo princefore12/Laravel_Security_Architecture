@@ -43,7 +43,7 @@ Vérifiez que dans `laravel-security-lab/.env`, vous avez bien **`SECURITY_HARDE
 2. **Extraction des comptes & mots de passe (`UNION SELECT`)** :
    - Revenez en arrière sur `/annuaire` et saisissez ce payload dans le champ de recherche :
      ```sql
-     ' AND 1=0 UNION SELECT id, email, password, legacy_md5, role FROM users -- 
+     ' AND 1=0 UNION SELECT id, email, password, legacy_md5, role FROM users -- '
      ```
      *(Attention : laissez bien l'espace après `-- ` pour MariaDB).*
    - **Constat en direct** : la table affiche tous les e-mails, les empreintes **`bcrypt` (`$2y$12$...`) uniques**, l'ancien condensat **`MD5` (`9c9b18b4b347333608b26b45b0904a4f`) identique** pour tous les étudiants, et les rôles (`admin`, `student`).
