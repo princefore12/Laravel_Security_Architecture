@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SecurityConfig;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,11 +15,11 @@ class EnsureLocalLabMiddleware
             return $next($request);
         }
 
-        $enabled = filter_var(env('LAB_DEMO_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
+        $enabled = SecurityConfig::readEnvBool('LAB_DEMO_ENABLED', true);
         $allowedIps = ['127.0.0.1', '::1'];
 
         if (! app()->environment('local') || ! $enabled || ! in_array($request->ip(), $allowedIps, true)) {
-            abort(403, 'Le laboratoire LOKO-Vault est strictement réservé à l\'environnement pédagogique local.');
+            abort(403, 'Accès strictement réservé à l\'environnement local de démonstration.');
         }
 
         return $next($request);

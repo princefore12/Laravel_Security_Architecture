@@ -11,6 +11,7 @@ Génère :
 
 import base64
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -35,8 +36,13 @@ WEB_DIR = ROOT / "livrables" / "web-interactif"
 LOGO_CI = ASSETS / "logo_ci.png"
 LOGO_GL = ASSETS / "logo_groupe_loko.png"
 LOGO_UT = ASSETS / "logo_ut_loko.png"
+SCR_DASH = ASSETS / "screen_dashboard.png"
+SCR_SQLI = ASSETS / "screen_sqli.png"
+SCR_SQLI_SEC = ASSETS / "screen_sqli_secure.png"
+SCR_ACCESS = ASSETS / "screen_access.png"
+SCR_CSRF = ASSETS / "screen_csrf_site.png"
 
-# Palette UT LOKO & CyberLab
+# Palette UT LOKO & Portail Académique
 C_RED = (139, 21, 24)        # #8B1518 Bordeaux UT LOKO
 C_RED_DARK = (91, 11, 13)    # #5B0B0D
 C_GOLD = (245, 158, 11)      # #F59E0B Or
@@ -157,7 +163,8 @@ def add_header_footer(slide, kicker, title, slide_num, total_slides, badge_text=
     add_rect(slide, 0, 0.12, 13.333, 0.03, C_GOLD)
 
     add_textbox(slide, 0.55, 0.25, 9.2, 0.3, kicker.upper(), font_size=11, color=C_RED, bold=True)
-    add_textbox(slide, 0.55, 0.52, 9.6, 0.55, title, font_size=24, color=C_NAVY, bold=True)
+    title_size = 19.5 if len(title) > 55 else (21.5 if len(title) > 46 else 24)
+    add_textbox(slide, 0.55, 0.50, 9.55, 0.58, title, font_size=title_size, color=C_NAVY, bold=True, valign=MSO_ANCHOR.MIDDLE)
 
     if badge_text:
         add_rect(slide, 10.2, 0.38, 2.6, 0.45, C_RED, (180, 83, 9), 1.0, rounded=True)
@@ -206,7 +213,7 @@ def build_pptx():
     prs.slide_width = PptIn(13.333)
     prs.slide_height = PptIn(7.5)
     blank = prs.slide_layouts[6]
-    total = 16
+    total = 19
 
     # ---------------- SLIDE 1 : PAGE DE GARDE ----------------
     s1 = prs.slides.add_slide(blank)
@@ -242,7 +249,7 @@ def build_pptx():
                 "La Sécurité dans une\nApplication Laravel",
                 font_size=38, color=C_WHITE, bold=True)
     add_textbox(s1, 4.65, 2.70, 8.1, 0.75,
-                "Architecture de défense multicouche, protection de la base MariaDB (XAMPP)\net démonstration en direct sur le laboratoire LOKO-Vault.",
+                "Architecture de défense multicouche, protection de la base MariaDB (XAMPP)\net démonstration en direct sur le Portail Académique UT LOKO.",
                 font_size=14.5, color=(241, 245, 249))
 
     add_textbox(s1, 4.65, 3.70, 8.0, 0.35, "EXPOSÉ RÉALISÉ ET PRÉSENTÉ PAR :", font_size=12, color=(253, 230, 138), bold=True)
@@ -256,7 +263,7 @@ def build_pptx():
 
     add_textbox(s1, 4.65, 7.05, 8.2, 0.35, "Format : 20 min d'exposé avec démonstration live XAMPP + 10 min de questions",
                 font_size=11, color=(253, 230, 138), align=PP_ALIGN.RIGHT)
-    add_notes(s1, "Accueil par Sore Ramatou : présenter le Groupe 5, M. CAMARA, le thème 12 et annoncer la démo live LOKO-Vault sur MariaDB XAMPP.")
+    add_notes(s1, "Accueil par Sore Ramatou : présenter le Groupe 5, M. CAMARA, le thème 12 et annoncer la démo live sur le Portail Académique UT LOKO (127.0.0.1:8000) connecté à MariaDB XAMPP.")
 
     # ---------------- SLIDE 2 : PLAN & RÉPARTITION ----------------
     s2 = prs.slides.add_slide(blank)
@@ -281,14 +288,32 @@ def build_pptx():
         add_bullets(s2, x + 0.1, 3.35, col_w - 0.2, 2.4, pts, font_size=11.5, color=C_SLATE, space_after=8)
 
     add_rect(s2, 0.55, 6.20, 12.23, 0.65, (254, 242, 242), C_RED, 1.2, rounded=True)
-    add_textbox(s2, 0.75, 6.28, 11.8, 0.48,
-                "🧪 Laboratoire LOKO-Vault : Chaque atelier dispose d'un commutateur 🔴 Mode Vulnérable / 🟢 Mode Sécurisé + Inspecteur SQL (DB::listen) branché sur MariaDB (loko_security_lab).",
-                font_size=12.5, color=C_NAVY, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s2, "Présenter la structure chronométrée : 4 minutes par membre, intégrant théorie et preuve en direct.")
+    add_textbox(s2, 0.75, 6.24, 11.8, 0.56,
+                "🧪 Démo Réelle : Portail Académique UT LOKO (127.0.0.1:8000) + site externe (:8001) attaqués via F12, URL et saisies SQL/XSS, puis durcis à chaud via .env (SECURITY_HARDENED=true).",
+                font_size=12.0, color=C_NAVY, valign=MSO_ANCHOR.MIDDLE)
+    add_notes(s2, "Présenter la structure chronométrée : 4 minutes par membre, intégrant théorie et exploitation réelle en direct.")
 
-    # ---------------- SLIDE 3 : POURQUOI SÉCURISER LARAVEL + BDD ----------------
+    # ---------------- SLIDE 3 : APERÇU PORTAIL ACADÉMIQUE UT LOKO ----------------
+    s_dash = prs.slides.add_slide(blank)
+    add_header_footer(s_dash, "Application Réelle • Zéro Spoiler", "Portail Académique UT LOKO (127.0.0.1:8000)", 3, total, "Portail UT LOKO")
+    add_rect(s_dash, 0.55, 1.42, 4.10, 5.28, C_WHITE, C_RED, 1.5, rounded=True)
+    add_textbox(s_dash, 0.75, 1.60, 3.70, 0.45, "🎓 Application Cible Crédible", font_size=15, color=C_RED, bold=True)
+    add_bullets(s_dash, 0.75, 2.20, 3.70, 4.3, [
+        ("Façade 100 % réaliste", "Aucun bouton d'attaque ni sélecteur de mode visible à l'écran."),
+        ("Modules complets", "Annuaire (/annuaire), Mur Campus (/campus), Notes (/bulletins/1) et Profil (/profil)."),
+        ("Site piège séparé (:8001)", "Page externe Bourse d'Excellence CI 2026 pour prouver le CSRF inter-origines."),
+        ("Durcissement à chaud (.env)", "Basculer SECURITY_HARDENED=false → true puis F5 bloque chaque faille."),
+    ], font_size=12.2, color=C_NAVY, space_after=13)
+    add_rect(s_dash, 4.88, 1.42, 7.90, 5.02, C_WHITE, (203, 213, 225), 1.5, rounded=False)
+    if SCR_DASH.exists():
+        s_dash.shapes.add_picture(str(SCR_DASH), PptIn(4.93), PptIn(1.46), width=PptIn(7.80), height=PptIn(4.875))
+    add_textbox(s_dash, 4.88, 6.48, 7.90, 0.35, "Capture réelle (1440×900) — Accueil du Portail Académique UT LOKO (MariaDB XAMPP)",
+                font_size=10.5, color=C_SLATE, italic=True, align=PP_ALIGN.CENTER)
+    add_notes(s_dash, "Présenter le Portail Académique UT LOKO comme une vraie application universitaire : zéro bouton spoiler, l'exploitation passe uniquement par F12, URL et entrées utilisateur.")
+
+    # ---------------- SLIDE 4 : POURQUOI SÉCURISER LARAVEL + BDD ----------------
     s3 = prs.slides.add_slide(blank)
-    add_header_footer(s3, "Introduction • Intervenante : Sore Ramatou", "Pourquoi la Sécurité est Indissociable de Laravel + MySQL ?", 3, total, "OWASP Top 10")
+    add_header_footer(s3, "Introduction • Intervenante : Sore Ramatou", "Pourquoi la Sécurité est Indissociable de Laravel + MySQL ?", 4, total, "OWASP Top 10")
     cards_s3 = [
         ("⚠️ 1. La Base de Données est la Cible N°1", (185, 28, 28), [
             ("Données critiques", "Comptes, mots de passe, notes académiques et journaux résident dans MariaDB XAMPP."),
@@ -301,7 +326,7 @@ def build_pptx():
             ("Contrôleur (C)", "Validation FormRequest, Policies et RateLimiter intégrés."),
         ]),
         ("⚡ 3. Le Facteur Humain Reste Décisif", (4, 120, 87), [
-            ("Contournements", "DB::raw() concaténé ou {!! $bio !!} réintroduisent les failles."),
+            ("Contournements", "DB::raw() concaténé ou {!! $post->content !!} réintroduisent les failles."),
             ("Oublis fréquents", "$guarded = [] ou absence de Policy (faille IDOR)."),
             ("Erreur de prod", "Laisser APP_DEBUG=true expose le code et les identifiants .env."),
         ]),
@@ -318,9 +343,9 @@ def build_pptx():
                 font_size=13.5, color=C_NAVY, italic=True, align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE)
     add_notes(s3, "Sore Ramatou fait le lien avec les groupes précédents (MVC, routes, contrôleurs, Blade, migrations).")
 
-    # ---------------- SLIDE 4 : CYCLE DE VIE SÉCURISÉ ----------------
+    # ---------------- SLIDE 5 : CYCLE DE VIE SÉCURISÉ ----------------
     s4 = prs.slides.add_slide(blank)
-    add_header_footer(s4, "Architecture Multicouche • Sore Ramatou", "Cycle de Vie Sécurisé d'une Requête HTTP dans Laravel", 4, total, "7 Couches")
+    add_header_footer(s4, "Architecture Multicouche • Sore Ramatou", "Cycle de Vie Sécurisé d'une Requête HTTP dans Laravel", 5, total, "7 Couches")
     layers = [
         ("1. Rate Limiter", "Anti Brute-Force\n(HTTP 429)", (220, 38, 38)),
         ("2. Middleware CSRF", "Jeton secret @csrf\n(HTTP 419)", (217, 119, 6)),
@@ -353,26 +378,48 @@ def build_pptx():
     ], font_size=12.5, color=C_SLATE)
     add_notes(s4, "Expliquer la défense en profondeur : même si une barrière faiblit, les couches suivantes bloquent l'attaque.")
 
-    # ---------------- SLIDE 5 : PILIER 1 - SQLi ----------------
+    # ---------------- SLIDE 6 : PILIER 1 - SQLi ----------------
     s5 = prs.slides.add_slide(blank)
-    add_header_footer(s5, "Pilier N°1 (00:00 – 04:00) • Sore Ramatou", "Injection SQL (SQLi) : SQL Brut vs PDO & Eloquent ORM", 5, total, "Démo Atelier 1")
+    add_header_footer(s5, "Pilier N°1 (00:00 – 04:00) • Sore Ramatou", "Injection SQL (SQLi) : SQL Brut vs PDO & Eloquent ORM", 6, total, "Démo /annuaire")
     add_code_card(s5, 0.55, 1.40, 5.95, 4.65,
                   "🔴 CODE VULNÉRABLE (Concaténation directe)",
-                  "// DANGER : $q injecté directement dans le SQL\n$q = $request->input('matricule');\n\n$students = DB::select(\n  \"SELECT id, matricule, full_name, filiere\n   FROM students WHERE matricule = '$q'\"\n);\n\n// Payload 1 : ' OR '1'='1  --> Toute la table !\n// Payload 2 : ' UNION SELECT id, email,\n//   password, role FROM users --  --> Exfiltration !",
-                  "Conséquence XAMPP : MariaDB compile les mots-clés SQL injectés par l'attaquant.", is_vuln=True)
+                  "// DANGER : $q injecté directement dans le SQL\n$q = $request->input('q');\n\n$students = DB::select(\n  \"SELECT id, matricule, full_name, filiere\n   FROM students WHERE full_name LIKE '%$q%'\"\n);\n\n// Payload 1 : ' OR '1'='1 --   --> Toute la table !\n// Payload 2 : ' UNION SELECT id, email,\n//   password, role FROM users -- --> Exfiltration !",
+                  "Conséquence XAMPP : MariaDB exécute les mots-clés SQL injectés par le visiteur.", is_vuln=True)
     add_code_card(s5, 6.83, 1.40, 5.95, 4.65,
                   "🟢 CODE SÉCURISÉ (Eloquent ORM & Bindings PDO)",
-                  "// SÉCURISÉ : Eloquent ORM (Requête préparée)\n$students = Student::where('matricule', $q)\n    ->get(['id', 'matricule', 'full_name', 'filiere']);\n\n// SÉCURISÉ : SQL brut avec marqueur ? et binding\n$students = DB::select(\n  \"SELECT id, matricule, full_name, filiere\n   FROM students WHERE matricule = ?\",\n  [$q]\n);",
+                  "// SÉCURISÉ : Eloquent ORM (Requête préparée)\n$students = Student::where('full_name', 'like', \"%$q%\")\n    ->get(['id', 'matricule', 'full_name', 'filiere']);\n\n// SÉCURISÉ : SQL brut avec marqueur ? et binding\n$students = DB::select(\n  \"SELECT id, matricule, full_name, filiere\n   FROM students WHERE matricule = ?\",\n  [$q]\n);",
                   "Protection : MariaDB traite $q comme une simple chaîne littérale inoffensive.", is_vuln=False)
     add_rect(s5, 0.55, 6.20, 12.23, 0.65, (255, 251, 235), (217, 119, 6), 1.2, rounded=True)
     add_textbox(s5, 0.75, 6.28, 11.8, 0.48,
                 "⚠️ Piège avancé : whereRaw(\"matricule = '$q'\") reste vulnérable ! Utiliser impérativement whereRaw('matricule = ?', [$q]).",
                 font_size=12.5, color=(146, 64, 14), bold=True, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s5, "Sore Ramatou lance la démo live sur http://127.0.0.1:8000/lab/sqli : payload OR 1=1 et UNION SELECT, puis bascule en Mode Sécurisé.")
+    add_notes(s5, "Sore Ramatou ouvre http://127.0.0.1:8000/annuaire : saisit ' (trace APP_DEBUG=true), puis ' OR '1'='1 -- et ' UNION SELECT (fuite users), puis bascule SECURITY_HARDENED=true.")
 
-    # ---------------- SLIDE 6 : PILIER 2 - MASS ASSIGNMENT CONCEPT ----------------
+    # ---------------- SLIDE 7 : CAPTURE LIVE PORTAIL (/annuaire & /admin/notes) ----------------
+    s_sqli_demo = prs.slides.add_slide(blank)
+    add_header_footer(s_sqli_demo, "Preuve en Direct • Piliers 1 & 2 (Sore Ramatou & Siby Mody)", "Portail en Direct : Annuaire (/annuaire) & Espace Admin (/admin/notes)", 7, total, "Preuve Live")
+    add_rect(s_sqli_demo, 0.55, 1.38, 5.95, 5.42, C_WHITE, (220, 38, 38), 1.5, rounded=True)
+    add_rect(s_sqli_demo, 0.55, 1.38, 5.95, 0.45, (254, 226, 226), (220, 38, 38), 1.0, rounded=False)
+    add_textbox(s_sqli_demo, 0.70, 1.43, 5.65, 0.35, "🔴 Point d'Entrée SQLi — /annuaire (?q=)", font_size=13, color=(153, 27, 27), bold=True)
+    if SCR_SQLI.exists():
+        s_sqli_demo.shapes.add_picture(str(SCR_SQLI), PptIn(0.67), PptIn(1.94), width=PptIn(5.71), height=PptIn(3.57))
+    add_textbox(s_sqli_demo, 0.70, 5.64, 5.65, 1.05,
+                "Une apostrophe (') provoque l'erreur SQL sous APP_DEBUG=true ; ' UNION SELECT ... FROM users extrait emails et hash MD5/Bcrypt avant .env.",
+                font_size=11.3, color=(153, 27, 27), bold=True)
+
+    add_rect(s_sqli_demo, 6.83, 1.38, 5.95, 5.42, C_WHITE, (3, 105, 161), 1.5, rounded=True)
+    add_rect(s_sqli_demo, 6.83, 1.38, 5.95, 0.45, (239, 246, 255), (3, 105, 161), 1.0, rounded=False)
+    add_textbox(s_sqli_demo, 6.98, 1.43, 5.65, 0.35, "🛡️ Espace Admin Ciblé — /admin/notes (F12 / CSRF)", font_size=13, color=(3, 105, 161), bold=True)
+    if SCR_SQLI_SEC.exists():
+        s_sqli_demo.shapes.add_picture(str(SCR_SQLI_SEC), PptIn(6.95), PptIn(1.94), width=PptIn(5.71), height=PptIn(3.57))
+    add_textbox(s_sqli_demo, 6.98, 5.64, 5.65, 1.05,
+                "Après promotion role=admin par DevTools (F12) sur /profil (ou connexion admin), cette console gère les notes — cible du site CSRF (:8001).",
+                font_size=11.3, color=(3, 105, 161), bold=True)
+    add_notes(s_sqli_demo, "Comparer les écrans réels : /annuaire (vecteur SQLi + UNION SELECT) et /admin/notes (cible de l'escalade F12 et de la forge CSRF).")
+
+    # ---------------- SLIDE 8 : PILIER 2 - MASS ASSIGNMENT CONCEPT ----------------
     s6 = prs.slides.add_slide(blank)
-    add_header_footer(s6, "Pilier N°2 (04:00 – 08:00) • SIBY MODY", "Mass Assignment : Escalade de Privilèges en Base de Données", 6, total, "OWASP A01 / A04")
+    add_header_footer(s6, "Pilier N°2 (04:00 – 08:00) • SIBY MODY", "Mass Assignment : Escalade de Privilèges en Base de Données", 8, total, "OWASP A01 / A04")
     add_code_card(s6, 0.55, 1.40, 5.95, 5.35,
                   "💥 MÉCANISME D'ATTAQUE SUR MARIADB",
                   "-- Structure de la table `users` sous XAMPP :\nCREATE TABLE users (\n  id BIGINT PRIMARY KEY,\n  name VARCHAR(255),\n  email VARCHAR(255),\n  password VARCHAR(255),\n  role VARCHAR(30) DEFAULT 'student' -- CIBLE !\n);\n\n-- L'attaquant ajoute un champ caché POST :\n-- name=Siby+Mody&email=...&role=admin",
@@ -386,43 +433,43 @@ def build_pptx():
     ], font_size=13, color=C_NAVY, space_after=14, lead_color=(4, 120, 87))
     add_notes(s6, "SIBY MODY explique le concept d'assignation de masse et pourquoi $fillable (liste blanche) est toujours supérieur à $guarded.")
 
-    # ---------------- SLIDE 7 : PILIER 2 - MASS ASSIGNMENT CODE ----------------
+    # ---------------- SLIDE 9 : PILIER 2 - MASS ASSIGNMENT CODE ----------------
     s7 = prs.slides.add_slide(blank)
-    add_header_footer(s7, "Pilier N°2 (Suite) • SIBY MODY", "La Double Barrière : FormRequest + $fillable", 7, total, "Démo Atelier 2")
+    add_header_footer(s7, "Pilier N°2 (Suite) • SIBY MODY", "La Double Barrière : FormRequest + $fillable", 9, total, "Démo F12 /profil")
     add_code_card(s7, 0.55, 1.40, 5.95, 4.65,
                   "🔴 CODE VULNÉRABLE (forceFill / $request->all())",
-                  "// ❌ Contrôleur vulnérable :\npublic function updateVulnerable(Request $request)\n{\n    $user = User::where('email', 'mody.siby@loko.ci')\n                ->firstOrFail();\n\n    // Écrit directement role='admin' en BDD !\n    $user->forceFill(\n        $request->only(['name', 'email', 'role'])\n    )->save();\n}",
+                  "// ❌ ProfileController.php (si SECURITY_HARDENED=false)\npublic function update(Request $request)\n{\n    $user = $request->user();\n\n    // Champ <input name=\"role\" value=\"admin\"> ajouté via F12 :\n    $user->forceFill($request->only(\n        ['name', 'email', 'role']\n    ))->save();\n}",
                   "Résultat : le compte étudiant est immédiatement promu Administrateur dans MariaDB.", is_vuln=True)
     add_code_card(s7, 6.83, 1.40, 5.95, 4.65,
                   "🟢 DOUBLE BARRIÈRE LARAVEL (FormRequest + $fillable)",
                   "// ✅ 1. UpdateProfileRequest.php (Validation HTTP)\npublic function rules(): array {\n    return [\n        'name'  => ['required', 'string', 'max:100'],\n        'email' => ['required', 'email', 'max:150'],\n    ]; // 'role' est absent -> exclu !\n}\n\n// ✅ 2. Contrôleur + User::$fillable\n$user->update($request->validated());",
-                  "Même si l'attaquant envoie role=admin, la valeur est ignorée à 100 %.", is_vuln=False)
+                  "Même si l'attaquant envoie role=admin via DevTools F12, la valeur est ignorée à 100 %.", is_vuln=False)
     add_rect(s7, 0.55, 6.20, 12.23, 0.65, (255, 251, 235), (217, 119, 6), 1.2, rounded=True)
     add_textbox(s7, 0.75, 6.28, 11.8, 0.48,
                 "💡 Pour changer légitimement un rôle côté Admin : assignation explicite après Policy ($user->role = 'admin'; $user->save();).",
                 font_size=12.5, color=(146, 64, 14), bold=True, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s7, "SIBY MODY passe sur LOKO-Vault Atelier 2 (/lab/mass-assignment), injecte role=admin en mode vulnérable puis prouve le blocage en mode sécurisé.")
+    add_notes(s7, "SIBY MODY ouvre /profil, appuie sur F12 (Inspecter), ajoute <input type='hidden' name='role' value='admin'> dans le formulaire, enregistre : Administration apparaît ! Puis active SECURITY_HARDENED=true.")
 
-    # ---------------- SLIDE 8 : PILIER 3 - XSS & BLADE ----------------
+    # ---------------- SLIDE 10 : PILIER 3 - XSS & BLADE ----------------
     s8 = prs.slides.add_slide(blank)
-    add_header_footer(s8, "Pilier N°3 (08:00 – 12:00) • Boin Naomi", "Cross-Site Scripting (XSS Stocké) & Échappement Blade", 8, total, "Démo Atelier 3")
+    add_header_footer(s8, "Pilier N°3 (08:00 – 12:00) • Boin Naomi", "Cross-Site Scripting (XSS Stocké) & Échappement Blade", 10, total, "Démo /campus")
     add_code_card(s8, 0.55, 1.40, 5.95, 4.65,
-                  "🔴 RENDU BLADE BRUT : {!! $student->bio !!}",
-                  "<!-- ❌ Vue Blade vulnérable -->\n<div class=\"bio\">\n    {!! $student->bio !!}\n</div>\n\n<!-- Payload stocké en table `students` : -->\n<img src=\"x\" onerror=\"\n  document.getElementById('xss-banner')\n          .style.display='block'\">",
-                  "Danger : le script stocké en BDD s'exécute chez tous les administrateurs et professeurs !", is_vuln=True)
+                  "🔴 RENDU BLADE BRUT : {!! $post->content !!}",
+                  "<!-- ❌ Vue Blade vulnérable (/campus) -->\n<div class=\"post-body\">\n    {!! $post->content !!}\n</div>\n\n<!-- Payload publié dans table `campus_posts` : -->\n<img src=\"x\" onerror=\"\n  alert('Session: ' + document.cookie)\">",
+                  "Danger : le JavaScript stocké s'exécute et lit document.cookie si HttpOnly=false !", is_vuln=True)
     add_code_card(s8, 6.83, 1.40, 5.95, 4.65,
-                  "🟢 ÉCHAPPEMENT AUTOMATIQUE : {{ $student->bio }}",
-                  "<!-- ✅ Vue Blade sécurisée par défaut -->\n<div class=\"bio\">\n    {{ $student->bio }}\n</div>\n\n<!-- Traduction PHP compilée par Blade : -->\n<?php echo e($student->bio); ?>\n\n<!-- Sortie envoyée au navigateur (inerte) : -->\n&lt;img src=&quot;x&quot; onerror=&quot;...&quot;&gt;",
+                  "🟢 ÉCHAPPEMENT AUTOMATIQUE : {{ $post->content }}",
+                  "<!-- ✅ Vue Blade sécurisée (SECURITY_HARDENED=true) -->\n<div class=\"post-body\">\n    {{ $post->content }}\n</div>\n\n<!-- Traduction PHP compilée par Blade : -->\n<?php echo e($post->content); ?>\n\n<!-- Sortie envoyée au navigateur (inerte) : -->\n&lt;img src=&quot;x&quot; onerror=&quot;...&quot;&gt;",
                   "htmlspecialchars(..., ENT_QUOTES, 'UTF-8') neutralise toute balise HTML/JS.", is_vuln=False)
     add_rect(s8, 0.55, 6.20, 12.23, 0.65, (239, 246, 255), (2, 132, 199), 1.2, rounded=True)
     add_textbox(s8, 0.75, 6.28, 11.8, 0.48,
                 "📌 Exception HTML riche (WYSIWYG) : nettoyer impérativement côté serveur via HTMLPurifier avant d'utiliser {!! !!}.",
                 font_size=12.5, color=(30, 58, 138), bold=True, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s8, "Boin Naomi présente la faille XSS stockée dans MariaDB puis montre en direct dans l'Atelier 3 l'exécution JS vs l'échappement Blade.")
+    add_notes(s8, "Boin Naomi publie un message contenant <img src=x onerror=...> sur /campus, lit laravel_session via la Console F12, puis active SECURITY_HARDENED=true (CSP + HttpOnly + {{ }}).")
 
-    # ---------------- SLIDE 9 : PILIER 3 - CSP & COOKIES ----------------
+    # ---------------- SLIDE 11 : PILIER 3 - CSP & COOKIES ----------------
     s9 = prs.slides.add_slide(blank)
-    add_header_footer(s9, "Pilier N°3 (Suite) • Boin Naomi", "Défense en Profondeur : En-têtes HTTP (CSP) & Cookies HttpOnly", 9, total, "SecurityHeaders")
+    add_header_footer(s9, "Pilier N°3 (Suite) • Boin Naomi", "Défense en Profondeur : En-têtes HTTP (CSP) & Cookies HttpOnly", 11, total, "SecurityHeaders")
     add_code_card(s9, 0.55, 1.45, 6.15, 5.25,
                   "🟢 MIDDLEWARE DE SÉCURITÉ HTTP",
                   "// app/Http/Middleware/SecurityHeadersMiddleware.php\n$response = $next($request);\n\n$response->headers->set(\n  'Content-Security-Policy',\n  \"default-src 'self'; script-src 'self'; object-src 'none';\"\n);\n$response->headers->set('X-Content-Type-Options', 'nosniff');\n$response->headers->set('X-Frame-Options', 'DENY');\n$response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');\n\nreturn $response;",
@@ -437,55 +484,57 @@ def build_pptx():
     ], font_size=13, color=C_NAVY, space_after=14, lead_color=(3, 105, 161))
     add_notes(s9, "Boin Naomi explique comment CSP + HttpOnly protègent la session même face à une faille JS.")
 
-    # ---------------- SLIDE 10 : PILIER 4 - CSRF CONCEPT ----------------
+    # ---------------- SLIDE 12 : PILIER 4 - CSRF CONCEPT + SITE PIÈGE (:8001) ----------------
     s10 = prs.slides.add_slide(blank)
-    add_header_footer(s10, "Pilier N°4 (12:00 – 16:00) • Traoré Charifat Leyla", "Cross-Site Request Forgery (CSRF) : L'Usurpation d'Action", 10, total, "Sessions & Jetons")
+    add_header_footer(s10, "Pilier N°4 (12:00 – 16:00) • Traoré Charifat Leyla", "Cross-Site Request Forgery (CSRF) & Site Piège (:8001)", 12, total, "127.0.0.1:8001")
     steps_csrf = [
-        ("1️⃣ Session Active", (3, 105, 161), [
-            "L'enseignant est connecté sur LOKO-Vault.",
-            "Son navigateur garde le cookie laravel_session.",
-        ]),
-        ("2️⃣ Site Piège Externe", (185, 28, 28), [
-            "Il ouvre un faux lien (« Bourse d'Excellence »).",
-            "Un formulaire caché envoie POST score=20 vers LOKO-Vault avec son cookie automatique !",
-        ]),
-        ("3️⃣ Bouclier @csrf", (4, 120, 87), [
-            "Laravel exige le jeton secret _token stocké en session.",
-            "Le site tiers ne peut pas le deviner -> HTTP 419 Page Expired !",
-        ]),
+        ("1️⃣ Session Active (:8000)", (3, 105, 161),
+         "Prof. M. Camara est connecté sur UT LOKO ; le navigateur conserve le cookie laravel_session."),
+        ("2️⃣ Site Piège Externe (:8001)", (185, 28, 28),
+         "Il visite « Bourse d'Excellence CI » : un formulaire caché poste POST /notes/4/modifier sans _token."),
+        ("3️⃣ Bouclier @csrf (HTTP 419)", (4, 120, 87),
+         "Avec SECURITY_HARDENED=true, DynamicCsrfMiddleware exige _token → HTTP 419 Page Expired !"),
     ]
     for i, (st, sc, sb) in enumerate(steps_csrf):
-        x = 0.55 + i * 4.18
-        add_rect(s10, x, 1.55, 3.88, 3.55, C_WHITE, sc, 1.5, rounded=True)
-        add_textbox(s10, x + 0.18, 1.75, 3.52, 0.45, st, font_size=16, color=sc, bold=True)
-        add_bullets(s10, x + 0.18, 2.35, 3.52, 2.5, sb, font_size=13, color=C_SLATE, space_after=12)
+        y = 1.42 + i * 1.34
+        add_rect(s10, 0.55, y, 5.80, 1.22, C_WHITE, sc, 1.4, rounded=True)
+        add_textbox(s10, 0.72, y + 0.08, 5.45, 0.36, st, font_size=13.5, color=sc, bold=True)
+        add_textbox(s10, 0.72, y + 0.44, 5.45, 0.72, sb, font_size=11.5, color=C_SLATE)
 
-    add_rect(s10, 0.55, 5.35, 12.23, 1.40, (255, 251, 235), (217, 119, 6), 1.2, rounded=True)
-    add_textbox(s10, 0.78, 5.50, 11.8, 1.1,
-                "⚡ Principe clé : Les requêtes GET ne doivent JAMAIS modifier la base de données (pas de Route::get('/grades/delete/{id}')).\nToute modification (POST, PUT, PATCH, DELETE) doit inclure le jeton cryptographique vérifié par hash_equals().",
-                font_size=13, color=(120, 53, 15), bold=True, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s10, "Traoré Charifat Leyla explique le scénario complet de l'attaque CSRF entre deux onglets du navigateur.")
+    add_rect(s10, 0.55, 5.46, 5.80, 1.34, (255, 251, 235), (217, 119, 6), 1.2, rounded=True)
+    add_textbox(s10, 0.72, 5.54, 5.46, 1.18,
+                "⚡ Règle RFC 9110 : Les routes GET ne doivent JAMAIS modifier la BDD.\nToute modification (POST, PUT, DELETE) exige le jeton _token vérifié par hash_equals().",
+                font_size=11.5, color=(120, 53, 15), bold=True, valign=MSO_ANCHOR.MIDDLE)
 
-    # ---------------- SLIDE 11 : PILIER 4 - CSRF CODE & DÉMO ----------------
+    add_rect(s10, 6.58, 1.42, 6.20, 3.92, C_WHITE, (185, 28, 28), 1.5, rounded=False)
+    if SCR_CSRF.exists():
+        s10.shapes.add_picture(str(SCR_CSRF), PptIn(6.64), PptIn(1.48), width=PptIn(6.08), height=PptIn(3.80))
+    add_rect(s10, 6.58, 5.46, 6.20, 1.34, (254, 242, 242), (185, 28, 28), 1.2, rounded=True)
+    add_textbox(s10, 6.75, 5.54, 5.86, 1.18,
+                "Capture réelle (http://127.0.0.1:8001) — Page piège indépendante (evil-site/index.html) qui modifie la note de Traoré Leyla à 20/20 avant l'activation de @csrf → HTTP 419.",
+                font_size=11.5, color=(153, 27, 27), bold=True, valign=MSO_ANCHOR.MIDDLE)
+    add_notes(s10, "Traoré Charifat Leyla explique le scénario inter-origines entre :8000 (Portail UT LOKO) et :8001 (Programme Bourses d'Excellence).")
+
+    # ---------------- SLIDE 13 : PILIER 4 - CSRF CODE & DÉMO ----------------
     s11 = prs.slides.add_slide(blank)
-    add_header_footer(s11, "Pilier N°4 (Suite) • Traoré Charifat Leyla", "Implémentation de @csrf, ValidateCsrfToken & HTTP 419", 11, total, "Démo Atelier 4")
+    add_header_footer(s11, "Pilier N°4 (Suite) • Traoré Charifat Leyla", "Implémentation de @csrf, ValidateCsrfToken & HTTP 419", 13, total, "Démo :8001 → 419")
     add_code_card(s11, 0.55, 1.40, 5.95, 4.65,
                   "🔴 CONFIGURATION VULNÉRABLE (Exemption CSRF)",
-                  "// ❌ bootstrap/app.php : exception imprudente\n$middleware->validateCsrfTokens(except: [\n    'lab/csrf/vulnerable-update',\n]);\n\n<!-- ❌ Formulaire piège externe sans _token -->\n<form action=\"http://127.0.0.1:8000/lab/csrf/vulnerable-update\"\n      method=\"POST\">\n  <input type=\"hidden\" name=\"score\" value=\"20\">\n</form>",
-                  "Résultat : la note passe à 20/20 dans MariaDB à l'insu de l'enseignant !", is_vuln=True)
+                  "// DynamicCsrfMiddleware.php (si SECURITY_HARDENED=false)\nif (! SecurityConfig::isHardened()\n    && $request->is('notes/*/modifier')) {\n    return true; // Route exemptée -> vulnérable !\n}\n\n<!-- Formulaire piège sur http://127.0.0.1:8001 -->\n<form action=\"http://127.0.0.1:8000/notes/4/modifier\"\n      method=\"POST\">\n  <input type=\"hidden\" name=\"score\" value=\"20\">\n</form>",
+                  "Résultat : la note passe à 20/20 dans MariaDB à l'insu de Prof. Camara !", is_vuln=True)
     add_code_card(s11, 6.83, 1.40, 5.95, 4.65,
                   "🟢 PROTECTION NATIVE LARAVEL (@csrf)",
-                  "<!-- ✅ Formulaire légitime dans Blade -->\n<form method=\"POST\" action=\"{{ route('lab.csrf.secure') }}\">\n    @csrf\n    <input type=\"number\" name=\"score\" value=\"15\">\n    <button type=\"submit\">Enregistrer</button>\n</form>\n\n<!-- Génère automatiquement : -->\n<input type=\"hidden\" name=\"_token\" value=\"9xK4m...\">",
-                  "Toute soumission depuis le site piège déclenche immédiatement HTTP 419 Page Expired.", is_vuln=False)
+                  "<!-- ✅ Formulaire Blade dans /admin/notes -->\n<form method=\"POST\" action=\"{{ route('portal.grades.update', $g) }}\">\n    @csrf\n    <input type=\"number\" name=\"score\" value=\"15.75\">\n    <button type=\"submit\">Enregistrer</button>\n</form>\n\n<!-- Génère automatiquement : -->\n<input type=\"hidden\" name=\"_token\" value=\"9xK4m...\">",
+                  "Toute soumission depuis le site piège :8001 déclenche HTTP 419 Page Expired.", is_vuln=False)
     add_rect(s11, 0.55, 6.20, 12.23, 0.65, (239, 246, 255), (2, 132, 199), 1.2, rounded=True)
     add_textbox(s11, 0.75, 6.28, 11.8, 0.48,
                 "🌐 Appels JavaScript / AJAX : utiliser <meta name=\"csrf-token\" content=\"{{ csrf_token() }}\"> dans l'en-tête X-CSRF-TOKEN.",
                 font_size=12.5, color=(30, 58, 138), bold=True, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s11, "Traoré Charifat Leyla exécute la démo de l'Atelier 4 (/lab/csrf) : bouton appât du site piège en mode vulnérable vs blocage 419 en mode sécurisé.")
+    add_notes(s11, "Traoré Charifat Leyla ouvre http://127.0.0.1:8001 pendant que Prof. Camara est connecté sur :8000, clique Vérifier mon éligibilité -> note 20/20, puis active SECURITY_HARDENED=true -> HTTP 419.")
 
-    # ---------------- SLIDE 12 : PILIER 5 - BCRYPT ----------------
+    # ---------------- SLIDE 14 : PILIER 5 - BCRYPT ----------------
     s12 = prs.slides.add_slide(blank)
-    add_header_footer(s12, "Pilier N°5 (16:00 – 20:00) • Djan Kouassi Noël", "Cryptographie en Base de Données : bcrypt / Argon2id vs MD5", 12, total, "OWASP A02")
+    add_header_footer(s12, "Pilier N°5 (16:00 – 20:00) • Djan Kouassi Noël", "Cryptographie en Base de Données : bcrypt / Argon2id vs MD5", 14, total, "OWASP A02")
     add_code_card(s12, 0.55, 1.45, 5.95, 5.15,
                   "🔴 STOCKAGE EN CLAIR OU MD5 / SHA-1 (Obsolète)",
                   "// ❌ À BANNIR ABSOLUMENT !\n$user->password = md5($request->password);\n\n// Problèmes critiques :\n// 1. Pas de sel (Salt) : deux utilisateurs avec '123456'\n//    ont le MÊME hash : e10adc3949ba59abbe56e057f20f883e\n// 2. Calcul ultra-rapide : > 50 milliards/s sur GPU\n// 3. Cassable instantanément par Rainbow Tables.",
@@ -496,26 +545,45 @@ def build_pptx():
                   "Sel aléatoire 128 bits + facteur de coût BCRYPT_ROUNDS=12 rendant le Brute-Force vain.", is_vuln=False)
     add_notes(s12, "Djan Kouassi Noël compare MD5 et bcrypt puis fait le test en direct dans l'onglet Hachage de l'Atelier 5.")
 
-    # ---------------- SLIDE 13 : PILIER 5 - IDOR, POLICIES & RATE LIMIT ----------------
+    # ---------------- SLIDE 15 : PILIER 5 - IDOR, POLICIES & RATE LIMIT ----------------
     s13 = prs.slides.add_slide(blank)
-    add_header_footer(s13, "Pilier N°5 (Suite) • Djan Kouassi Noël", "Contrôle d'Accès (IDOR vs Policies) & RateLimiter", 13, total, "Démo Atelier 5")
+    add_header_footer(s13, "Pilier N°5 (Suite) • Djan Kouassi Noël", "Contrôle d'Accès (IDOR vs Policies) & RateLimiter", 15, total, "Démo /bulletins/2")
     add_code_card(s13, 0.55, 1.40, 5.95, 4.65,
                   "🔴 FAILLE IDOR (Insecure Direct Object Reference)",
-                  "// ❌ Vérifie la connexion (auth), mais PAS la propriété !\npublic function showVulnerable(int $id)\n{\n    $grade = Grade::with('student')->findOrFail($id);\n    return view('lab.grade', compact('grade'));\n}\n\n// L'étudiant #1 change l'URL /grades/1 en /grades/2\n// -> Lit les notes confidentielles d'un camarade !",
+                  "// GradeController.php (si SECURITY_HARDENED=false)\npublic function show(Request $request, Grade $grade)\n{\n    if (SecurityConfig::isHardened()) {\n        Gate::authorize('view', $grade);\n    }\n    return view('portal.grade', compact('grade'));\n}\n\n// Sore modifie l'URL /bulletins/1 -> /bulletins/2\n// -> Lit les notes confidentielles de Siby Mody !",
                   "Vulnérabilité N°1 du classement OWASP Top 10 (Broken Access Control).", is_vuln=True)
     add_code_card(s13, 6.83, 1.40, 5.95, 4.65,
                   "🟢 AUTHORIZATION POLICY & RATE LIMITER",
-                  "// ✅ app/Policies/GradePolicy.php\npublic function view(User $user, Grade $grade): bool {\n    return $user->role === 'admin'\n        || $grade->student->user_id === $user->id;\n}\n// Contrôleur : $this->authorize('view', $grade); // 403\n\n// ✅ Anti Brute-Force (5 essais / min -> HTTP 429)\nRateLimiter::hit($key, 60);",
+                  "// ✅ app/Policies/GradePolicy.php\npublic function view(User $user, Grade $grade): bool {\n    return $user->role === 'admin'\n        || $grade->student->user_id === $user->id;\n}\n// Contrôleur : Gate::authorize('view', $grade); // 403\n\n// ✅ Anti Brute-Force (5 essais / min -> HTTP 429)\nRateLimiter::hit($rateKey, 60);",
                   "Bouclier double : HTTP 403 Forbidden (IDOR) + HTTP 429 Too Many Requests (Brute-Force).", is_vuln=False)
     add_rect(s13, 0.55, 6.20, 12.23, 0.65, (236, 253, 245), (5, 150, 105), 1.2, rounded=True)
     add_textbox(s13, 0.75, 6.28, 11.8, 0.48,
                 "💡 Rappel clé : Authentification (401 : Qui êtes-vous ?) ≠ Autorisation (403 : Avez-vous le droit sur CETTE ligne SQL ?).",
                 font_size=12.5, color=(6, 95, 70), bold=True, valign=MSO_ANCHOR.MIDDLE)
-    add_notes(s13, "Djan Kouassi Noël démontre l'IDOR (accès /grades/2 bloqué à 403) et la simulation Brute-Force bloquée à 429.")
+    add_notes(s13, "Djan Kouassi Noël modifie /bulletins/1 en /bulletins/2 dans l'URL (IDOR), puis active SECURITY_HARDENED=true -> HTTP 403 Forbidden + RateLimiter HTTP 429 sur /connexion.")
 
-    # ---------------- SLIDE 14 : DURCISSEMENT .ENV & MARIADB XAMPP ----------------
+    # ---------------- SLIDE 16 : CAPTURE LIVE IDOR & BCRYPT ----------------
+    s_acc_demo = prs.slides.add_slide(blank)
+    add_header_footer(s_acc_demo, "Preuve en Direct • Pilier 5 (Djan Kouassi Noël)", "Exploitation IDOR Réelle (/bulletins/1 → /bulletins/2) & Blocage 403", 16, total, "Preuve Live")
+    add_rect(s_acc_demo, 0.55, 1.42, 7.90, 5.02, C_WHITE, (203, 213, 225), 1.5, rounded=False)
+    if SCR_ACCESS.exists():
+        s_acc_demo.shapes.add_picture(str(SCR_ACCESS), PptIn(0.60), PptIn(1.46), width=PptIn(7.80), height=PptIn(4.875))
+    add_textbox(s_acc_demo, 0.55, 6.48, 7.90, 0.35, "Capture réelle (1440×900) — Session ÉTUDIANT Sore Ramatou accédant à /bulletins/2 (Siby Mody)",
+                font_size=10.5, color=C_SLATE, italic=True, align=PP_ALIGN.CENTER)
+
+    add_rect(s_acc_demo, 8.68, 1.42, 4.10, 5.28, C_WHITE, (5, 150, 105), 1.5, rounded=True)
+    add_textbox(s_acc_demo, 8.88, 1.60, 3.70, 0.45, "🛡️ Contrôle d'Accès & Crypto", font_size=15, color=(4, 120, 87), bold=True)
+    add_bullets(s_acc_demo, 8.88, 2.20, 3.70, 4.3, [
+        ("1. Faille IDOR (URL)", "Changer /1 en /2 dans la barre d'adresse expose le relevé de Siby Mody."),
+        ("2. GradePolicy (403)", "Avec SECURITY_HARDENED=true, Gate::authorize() renvoie HTTP 403 Forbidden."),
+        ("3. MD5 vs Bcrypt", "Table users.legacy_md5 (identique 9c9b18...) face au sel unique $2y$12$."),
+        ("4. RateLimiter (429)", "Verrouille /connexion après 5 erreurs en 60 secondes (HTTP 429)."),
+    ], font_size=11.8, color=C_NAVY, space_after=12, lead_color=(4, 120, 87))
+    add_notes(s_acc_demo, "Montrer sur la capture que la session Sore Ramatou lit /bulletins/2 (Siby Mody) avant durcissement, puis obtient 403 après SECURITY_HARDENED=true.")
+
+    # ---------------- SLIDE 17 : DURCISSEMENT .ENV & MARIADB XAMPP ----------------
     s14 = prs.slides.add_slide(blank)
-    add_header_footer(s14, "Infrastructure & Déploiement • Djan Kouassi Noël", "Durcissement du Fichier .env et de MariaDB (XAMPP → Production)", 14, total, "OWASP A05")
+    add_header_footer(s14, "Infrastructure & Déploiement • Djan Kouassi Noël", "Durcissement du Fichier .env et de MariaDB (XAMPP → Production)", 17, total, "OWASP A05")
     add_rect(s14, 0.55, 1.45, 5.95, 5.20, C_WHITE, C_VULN, 1.5, rounded=True)
     add_textbox(s14, 0.78, 1.65, 5.5, 0.45, "🔴 Erreurs Critiques à Éviter", font_size=16, color=(185, 28, 28), bold=True)
     add_bullets(s14, 0.78, 2.25, 5.5, 4.2, [
@@ -531,14 +599,14 @@ def build_pptx():
                   "Principe du moindre privilège : même en cas de faille, le compte SQL ne peut pas détruire le serveur.", is_vuln=False)
     add_notes(s14, "Expliquer la transition entre le développement sous XAMPP et un déploiement réel en production.")
 
-    # ---------------- SLIDE 15 : MATRICE RÉCAPITULATIVE ----------------
+    # ---------------- SLIDE 18 : MATRICE RÉCAPITULATIVE ----------------
     s15 = prs.slides.add_slide(blank)
-    add_header_footer(s15, "Synthèse Technique • Groupe 5", "Matrice Récapitulative des 5 Piliers de Sécurité Laravel", 15, total, "Vue Globale")
+    add_header_footer(s15, "Synthèse Technique • Groupe 5", "Matrice Récapitulative des 5 Piliers de Sécurité Laravel", 18, total, "Vue Globale")
     rows_data = [
         ("Pilier / Menace", "Intervenant", "Pratique Vulnérable (❌)", "Protection Laravel (✅)", "Effet / Code"),
         ("1. Injection SQL (SQLi)", "Sore Ramatou", "DB::select(\"... '$q'\")", "Eloquent ORM & PDO (?)", "Paramètre littéral"),
         ("2. Mass Assignment", "Siby Mody", "forceFill($request->all())", "$fillable + FormRequest", "Filtrage strict / 422"),
-        ("3. XSS Stockée", "Boin Naomi", "{!! $student->bio !!}", "Blade {{ }} + CSP + HttpOnly", "HTML échappé"),
+        ("3. XSS Stockée", "Boin Naomi", "{!! $post->content !!}", "Blade {{ }} + CSP + HttpOnly", "HTML échappé"),
         ("4. Faille CSRF", "Traoré C. Leyla", "Exemption CSRF / route GET", "@csrf + ValidateCsrfToken", "HTTP 419 Expired"),
         ("5. Auth / IDOR / Brute", "Djan K. Noël", "MD5 + find($id) direct", "bcrypt + Policy + RateLimiter", "HTTP 403 & 429"),
     ]
@@ -568,13 +636,13 @@ def build_pptx():
             r.font.color.rgb = ppt_rgb(C_WHITE if ri == 0 else (C_RED if ci == 4 else C_NAVY))
     add_notes(s15, "Vue synthétique idéale à laisser affichée si le jury pose des questions transversales.")
 
-    # ---------------- SLIDE 16 : CONCLUSION & Q&R ----------------
+    # ---------------- SLIDE 19 : CONCLUSION & Q&R ----------------
     s16 = prs.slides.add_slide(blank)
-    add_header_footer(s16, "Conclusion & Session Questions-Réponses (10 Min)", "Merci pour votre Attention ! Place aux Questions", 16, total, "Groupe 5 • UT LOKO")
+    add_header_footer(s16, "Conclusion & Session Questions-Réponses (10 Min)", "Merci pour votre Attention ! Place aux Questions", 19, total, "Groupe 5 • UT LOKO")
     cols_s16 = [
         ("✅ Architecture Native Solide", (4, 120, 87), "Laravel protège nativement contre l'OWASP Top 10 (PDO, $fillable, Blade {{ }}, @csrf, bcrypt, Policies) dès lors que ses conventions sont respectées."),
         ("🗄️ Intégrité Base MariaDB", (180, 83, 9), "Les requêtes préparées, les validations FormRequest et les comptes MySQL à privilèges limités préservent la confidentialité des données XAMPP."),
-        ("🧪 Vérification Automatisée", (3, 105, 161), "Notre suite PHPUnit (SecurityLabTest) valide en continu les 5 piliers en mode vulnérable et sécurisé sur la base de données."),
+        ("🧪 Vérification Automatisée", (3, 105, 161), "Notre suite PHPUnit (PortalSecurityTest) valide en continu les 5 piliers en mode vulnérable et durci sur la base de données."),
     ]
     for i, (t, c, body) in enumerate(cols_s16):
         x = 0.55 + i * 4.18
@@ -939,10 +1007,10 @@ def build_docx():
     add_compare_table(
         doc,
         "❌ ROUTE SANS PROTECTION CSRF",
-        "// bootstrap/app.php :\n$middleware->validateCsrfTokens(except: [\n  'lab/csrf/vulnerable-update',\n]);",
+        "// DynamicCsrfMiddleware.php (SECURITY_HARDENED=false)\nif (! SecurityConfig::isHardened() && $request->is('notes/*/modifier')) {\n    return true;\n}",
         "Un site externe peut modifier une note en base de données dès qu'un enseignant visite une page appât.",
         "✅ JETON @csrf & MIDDLEWARE VALIDATECSRFTOKEN",
-        "<form method=\"POST\" action=\"{{ route('lab.csrf.secure') }}\">\n  @csrf\n  <input type=\"number\" name=\"score\">\n</form>",
+        "<form method=\"POST\" action=\"{{ route('portal.grades.update', $grade) }}\">\n  @csrf\n  <input type=\"number\" name=\"score\">\n</form>",
         "En l'absence d'un _token valide vérifié par hash_equals(), Laravel bloque l'attaque avec HTTP 419."
     )
 
@@ -969,7 +1037,7 @@ def build_docx():
 
     add_doc_heading(doc, "7. Conclusion Générale", "Groupe 5")
     add_doc_para(doc,
-        "Le laboratoire applicatif LOKO-Vault connecté à MariaDB sous XAMPP démontre concrètement que la sécurité d'une application Laravel repose sur la synergie entre les mécanismes natifs du framework (PDO, $fillable, Blade {{ }}, @csrf, bcrypt, Policies, RateLimiter) et la vigilance constante du développeur tout au long du cycle de vie logiciel.")
+        "Le Portail Académique UT LOKO connecté à MariaDB sous XAMPP démontre concrètement que la sécurité d'une application Laravel repose sur la synergie entre les mécanismes natifs du framework (PDO, $fillable, Blade {{ }}, @csrf, bcrypt, Policies, RateLimiter) et la vigilance constante du développeur tout au long du cycle de vie logiciel.")
 
     out_docx = OFFICE_DIR / "Rapport_Securite_Laravel_Groupe5.docx"
     doc.save(str(out_docx))
@@ -1103,7 +1171,7 @@ def build_pdf_report(pdf_path: Path):
     # --- PAGES SUIVANTES : CORPS DU RAPPORT ---
     story.append(Paragraph("Sommaire Exécutif &amp; Répartition du Groupe 5", st_h1))
     story.append(Paragraph(
-        "Ce rapport académique accompagne la présentation orale (20 minutes avec démonstration en direct sur le laboratoire <b>LOKO-Vault</b> connecté à MariaDB/XAMPP) et la session de questions-réponses (10 minutes) devant M. CAMARA.",
+        "Ce rapport académique accompagne la présentation orale avec démonstration en direct sur le <b>Portail Académique UT LOKO</b> connecté à MariaDB/XAMPP devant M. CAMARA.",
         st_body))
 
     sum_data = [[
@@ -1189,7 +1257,7 @@ def build_pdf_report(pdf_path: Path):
 
     story.append(Paragraph("7. Conclusion Générale", st_h1))
     story.append(Paragraph(
-        "À travers l'application <b>LOKO-Vault</b> reliée à MariaDB sous XAMPP, le Groupe 5 a démontré comment Laravel protège nativement contre l'OWASP Top 10 tout en soulignant la responsabilité du développeur dans le respect des conventions du framework.",
+        "À travers l'application <b>Portail Académique UT LOKO</b> reliée à MariaDB sous XAMPP, le Groupe 5 a démontré comment Laravel protège nativement contre l'OWASP Top 10 tout en soulignant la responsabilité du développeur dans le respect des conventions du framework.",
         st_body))
 
     doc.build(story, onFirstPage=draw_page_chrome, onLaterPages=draw_page_chrome)
@@ -1248,8 +1316,14 @@ def inject_logos_into_web_html():
           <img src="{ut_uri}" alt="UT LOKO" style="max-width:190px; max-height:110px; object-fit:contain; margin:4px auto; display:block;">
         </div>"""
         if old_box in txt:
-            slides_html.write_text(txt.replace(old_box, new_box), encoding="utf-8")
-            print("Embedded official logos into slides.html")
+            txt = txt.replace(old_box, new_box)
+        for asset_file in [SCR_DASH, SCR_SQLI, SCR_SQLI_SEC, SCR_ACCESS, SCR_CSRF]:
+            if asset_file.exists():
+                uri = img_to_data_uri(asset_file)
+                pat = rf'(<img\s+[^>]*data-asset="{re.escape(asset_file.name)}"[^>]*\bsrc=")[^"]*(")'
+                txt = re.sub(pat, rf"\g<1>{uri}\2", txt)
+        slides_html.write_text(txt, encoding="utf-8")
+        print("Embedded official logos and live captures into slides.html")
 
     rapport_html = WEB_DIR / "rapport.html"
     if rapport_html.exists() and ut_uri:

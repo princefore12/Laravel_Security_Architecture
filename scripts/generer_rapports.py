@@ -102,7 +102,7 @@ CONTRIBUTIONS_ROWS = [
 OWASP_MATRIX = [
     ("A03:2021 Injection (SQLi)", "DB::select(\"SELECT ... '$q'\")", "Eloquent ORM & PDO bindings (?)", "Paramètre littéral"),
     ("A01/A04 Mass Assignment", "$user->forceFill($request->all())", "#[Fillable] + UpdateProfileRequest", "422 / Filtrage strict"),
-    ("A03:2021 Injection (XSS)", "{!! $student->bio !!} sans CSP", "Blade {{ }} + SecurityHeadersMiddleware", "HTML échappé & CSP"),
+    ("A03:2021 Injection (XSS)", "{!! $post->content !!} sans CSP", "Blade {{ }} + SecurityHeadersMiddleware", "HTML échappé & CSP"),
     ("A01:2021 CSRF", "Route POST exempte ou action GET", "Directive @csrf + ValidateCsrfToken", "HTTP 419 Expired"),
     ("A01:2021 Broken Access (IDOR)", "Grade::findOrFail($id) sans Policy", "GradePolicy::view() + authorize()", "HTTP 403 Forbidden"),
     ("A02:2021 Cryptographic Fail.", "Stockage en clair ou MD5 / SHA-1", "Hash::make() bcrypt (cost 12) + sel", "Hash $2y$12$ unique"),
@@ -119,12 +119,12 @@ ENV_HARDENING = [
 ]
 
 TEST_CASES = [
-    ("test_dashboard_loads_and_lists_all_five_pillars", "Tableau de bord (GET /)", "Vérifie le statut HTTP 200 et l'affichage des 5 piliers et membres."),
-    ("test_pillar_1_sqli_exploits_..._and_is_blocked_...", "Pilier 1 : SQLi", "Prouve le bypass ' OR '1'='1 en mode vulnérable et le blocage PDO en mode sécurisé."),
-    ("test_pillar_2_mass_assignment_escalates_..._blocked", "Pilier 2 : Mass Assignment", "Prouve l'escalade role=admin via forceFill() et son rejet par FormRequest + #[Fillable]."),
-    ("test_pillar_3_xss_renders_raw_..._and_escaped_...", "Pilier 3 : XSS & CSP", "Prouve la sortie brute en vulnérable vs <img> + en-têtes CSP/nosniff/DENY en sécurisé."),
-    ("test_pillar_4_csrf_exempt_route_succeeds_...", "Pilier 4 : CSRF", "Vérifie la modification sans jeton sur route exemptée et la protection sur route sécurisée."),
-    ("test_pillar_5_idor_password_hashing_and_rate_limiting", "Pilier 5 : IDOR/Bcrypt/429", "Valide GradePolicy (403), Hash::check (bcrypt $2y$) et RateLimiter (429 au 6e essai)."),
+    ("test_public_portal_pages_render_without_...", "Portail Public (GET /)", "Vérifie HTTP 200 et l'absence de boutons ou indices d'attaque."),
+    ("test_sqli_login_bypass_and_union_...", "Pilier 1 : SQLi (/annuaire)", "Prouve le bypass ' OR '1'='1, UNION SELECT et le blocage PDO à chaud."),
+    ("test_mass_assignment_escalates_role_...", "Pilier 2 : Mass Assign. (/profil)", "Prouve l'escalade role=admin via forceFill() et son rejet par FormRequest."),
+    ("test_xss_cookies_httponly_and_csp_...", "Pilier 3 : XSS & CSP (/campus)", "Prouve le script stocké vs {{ }}, HttpOnly et les en-têtes CSP/DENY."),
+    ("test_csrf_dynamic_middleware_allows_...", "Pilier 4 : CSRF (:8001 → :8000)", "Vérifie POST /notes/*/modifier sans jeton puis le blocage HTTP 419."),
+    ("test_idor_policy_rate_limiter_and_...", "Pilier 5 : IDOR/Bcrypt/429", "Valide GradePolicy (403), bcrypt ($2y$), MD5 legacy et RateLimiter (429)."),
 ]
 
 BIBLIOGRAPHY = [
@@ -144,14 +144,14 @@ REPORT_TEXT = {
         "Ce document technique présente l'étude approfondie menée par le Groupe 5 (Licence 3 Informatique, UT LOKO) "
         "sur la sécurité dans une application Laravel. Il examine comment les failles web majeures ciblent l'interface "
         "entre le code PHP et le serveur de base de données MariaDB / MySQL (XAMPP), et détaille l'implémentation "
-        "des boucliers natifs de Laravel au sein du laboratoire applicatif expérimental LOKO-Vault CyberLab "
-        "(Laravel 13, PHP 8.5.12)."
+        "des boucliers natifs de Laravel au sein de l'application réelle Portail Académique UT LOKO "
+        "(:8000 & :8001, Laravel 13, PHP 8.5.12)."
     ),
     "p2_sub": "Répartition des contributions techniques du Groupe 5",
     "p2_callout_t": "Validation expérimentale sous XAMPP",
     "p2_callout_b": (
         "Chaque chapitre s'appuie sur des contrôles réels exécutés sur la base MariaDB loko_security_lab "
-        "(port 3306) ainsi que sur une batterie de tests automatisés PHPUnit (8 tests, 50 assertions)."
+        "(port 3306) ainsi que sur une batterie de tests automatisés PHPUnit (8 tests, 65 assertions)."
     ),
 
     "p3_title": "1. Introduction Générale & Défense en Profondeur",
@@ -197,8 +197,8 @@ REPORT_TEXT = {
         "n'interprète jamais le contenu des paramètres comme du code SQL."
     ),
     "p4_cmp": (
-        "[VULNÉRABLE] SqlInjectionController",
-        "$q = $request->input('matricule');\n$rows = DB::select(\n  \"SELECT id, matricule, full_name, filiere, moyenne\n   FROM students WHERE matricule = '{$q}'\"\n);",
+        "[VULNÉRABLE] DirectoryController",
+        "$q = $request->input('q');\n$rows = DB::select(\n  \"SELECT id, matricule, full_name, filiere, moyenne\n   FROM students WHERE full_name LIKE '%{$q}%'\"\n);",
         "Vulnérable au bypass (' OR '1'='1) et à l'exfiltration UNION SELECT sur users.",
         "[SÉCURISÉ] Eloquent ORM & Bindings PDO",
         "$rows = Student::query()\n  ->where('matricule', $q)\n  ->get(['id', 'matricule', 'full_name', 'filiere', 'moyenne']);\n// Ou : DB::select('SELECT ... WHERE matricule = ?', [$q]);",
@@ -209,7 +209,7 @@ REPORT_TEXT = {
         "Eloquent ne protège pas les expressions brutes mal écrites comme whereRaw(\"matricule = '$q'\"). "
         "Il est impératif d'utiliser un tableau de bindings : whereRaw('matricule = ?', [$q])."
     ),
-    "p4_fig": "Figure 2 : Capture de LOKO-Vault — Exploitation SQLi (' OR '1'='1) et trace SQL réelle capturée par DB::listen().",
+    "p4_fig": "Figure 2 : Capture du Portail UT LOKO — Annuaire (/annuaire) exposé aux injections SQL (?q=) avant durcissement .env.",
 
     "p5_title": "3. Pilier 2 : Mass Assignment, Intégrité BDD & FormRequest",
     "p5_author": "Siby Mody",
@@ -249,22 +249,22 @@ REPORT_TEXT = {
     "p6_p1": (
         "Une faille Cross-Site Scripting (XSS) permet d'injecter du code JavaScript exécutable dans les pages affichées "
         "aux utilisateurs. Dans sa forme stockée (Stored XSS), la base MariaDB sert de vecteur persistant : une charge "
-        "malveillante enregistrée dans students.bio (telle qu'une balise <img src='x' onerror='...'>) s'exécute "
-        "automatiquement chez tout professeur ou administrateur qui ouvre la fiche de l'étudiant."
+        "malveillante enregistrée dans campus_posts.content (balise <img src='x' onerror='...'>) s'exécute "
+        "automatiquement chez tout professeur ou étudiant qui consulte le mur du campus (/campus)."
     ),
     "p6_sub2": "4.2. Échappement automatique Blade : {{ }} contre {!! !!}",
     "p6_p2": (
-        "Par défaut, la syntaxe Blade {{ $student->bio }} se compile en <?php echo e($student->bio); ?>, qui appelle "
+        "Par défaut, la syntaxe Blade {{ $post->content }} se compile en <?php echo e($post->content); ?>, qui appelle "
         "htmlspecialchars(..., ENT_QUOTES, 'UTF-8', true). Tous les chevrons et guillemets sont convertis en entités "
-        "HTML inertes (&lt;, &gt;). À l'opposé, la directive {!! $student->bio !!} affiche la chaîne brute sans filtrage "
+        "HTML inertes (&lt;, &gt;). À l'opposé, la directive {!! $post->content !!} affiche la chaîne brute sans filtrage "
         "et ne doit jamais être employée sur des saisies utilisateurs non purifiées."
     ),
     "p6_cmp": (
         "[VULNÉRABLE] Vue Blade ({!! !!})",
-        "<div class=\"bio-preview\">\n  {!! $student->bio !!}\n</div>",
+        "<div class=\"post-body\">\n  {!! $post->content !!}\n</div>",
         "Exécute le JavaScript stocké dans MariaDB dès le chargement du DOM.",
         "[SÉCURISÉ] Vue Blade ({{ }}) + CSP",
-        "<div class=\"bio-preview\">\n  {{ $student->bio }}\n</div>\n// + SecurityHeadersMiddleware",
+        "<div class=\"post-body\">\n  {{ $post->content }}\n</div>\n// + SecurityHeadersMiddleware",
         "Convertit les balises en texte inerte et applique Content-Security-Policy.",
     ),
     "p6_sub3": "4.3. Défense en profondeur côté HTTP et Cookies",
@@ -283,8 +283,8 @@ REPORT_TEXT = {
     "p7_p1": (
         "Une attaque CSRF exploite la confiance accordée par une application au navigateur d'un utilisateur déjà authentifié. "
         "Tant que la session est ouverte, le navigateur transmet automatiquement le cookie laravel_session vers le domaine cible, "
-        "y compris lorsque la requête HTTP est déclenchée depuis un site tiers malveillant (simulé dans LOKO-Vault via la "
-        "page piège /lab/csrf/evil-site qui poste silencieusement score=20)."
+        "y compris lorsque la requête HTTP est déclenchée depuis un site tiers malveillant (simulé sur le serveur externe "
+        "http://127.0.0.1:8001/index.html qui poste silencieusement score=20)."
     ),
     "p7_sub2": "5.2. Jeton cryptographique @csrf et ValidateCsrfToken (HTTP 419)",
     "p7_p2": (
@@ -296,10 +296,10 @@ REPORT_TEXT = {
     ),
     "p7_cmp": (
         "[VULNÉRABLE] Route exempte ou GET",
-        "// bootstrap/app.php :\n$middleware->validateCsrfTokens(except: ['lab/csrf/vulnerable-update']);\n// Ou : Route::get('/grades/reset/{id}', ...);",
-        "Le site piège externe modifie la note en base MariaDB sans jeton _token.",
+        "// DynamicCsrfMiddleware (SECURITY_HARDENED=false)\nif ($request->is('notes/*/modifier')) return true;\n// Ou : Route::get('/grades/reset/{id}', ...);",
+        "Le site piège :8001 modifie la note en base MariaDB sans jeton _token.",
         "[SÉCURISÉ] Protection @csrf & SameSite=Lax",
-        "<form method=\"POST\" action=\"{{ route('lab.csrf.secure-update') }}\">\n  @csrf\n  <input type=\"number\" name=\"score\" value=\"15.75\">\n</form>",
+        "<form method=\"POST\" action=\"{{ route('portal.grades.update', $g) }}\">\n  @csrf\n  <input type=\"number\" name=\"score\" value=\"15.75\">\n</form>",
         "Une soumission externe sans _token échoue immédiatement avec HTTP 419.",
     ),
     "p7_bullets": [
@@ -332,17 +332,17 @@ REPORT_TEXT = {
         "La façade RateLimiter restreint les tentatives d'authentification à 5 essais par minute par IP et verrouille la "
         "6e tentative via HTTP 429 Too Many Requests."
     ),
-    "p8_fig": "Figure 3 : Capture de LOKO-Vault — Atelier 5 (GradePolicy IDOR, comparateur MD5/bcrypt et RateLimiter).",
+    "p8_fig": "Figure 3 : Capture du Portail UT LOKO — Faille IDOR sur /bulletins/2 (Sore Ramatou lit la note de Siby Mody) avant HTTP 403.",
 
     "p9_title": "7. Architecture MariaDB XAMPP, Durcissement & Conclusion",
     "p9_author": "Groupe 5",
     "p9_p1": (
-        "La base MariaDB 10.11.16 s'articule autour de quatre tables InnoDB liées par contraintes référentielles : "
-        "users (comptes et rôles), students (dossiers liés par user_id FK), grades (notes liées par student_id FK) et "
-        "security_logs (traçabilité SQL temps réel capturée par SqlInspectorService)."
+        "La base MariaDB 10.11.16 s'articule autour de cinq tables InnoDB liées par contraintes référentielles : "
+        "users (rôles et legacy_md5), students (dossiers liés), grades (notes), campus_posts (mur XSS) et "
+        "security_logs (traçabilité SQL capturée par SqlInspectorService)."
     ),
     "p9_fig1": "Figure 4 : Schéma relationnel MariaDB (loko_security_lab) sous XAMPP.",
-    "p9_fig2": "Figure 5 : Tableau de bord LOKO-Vault et journalisation temps réel dans security_logs.",
+    "p9_fig2": "Figure 5 : Accueil du Portail Académique UT LOKO (127.0.0.1:8000) connecté à MariaDB.",
     "p9_sub": "7.2. Checklist de durcissement XAMPP vers Production",
     "p9_conc_lead": "Conclusion générale : ",
     "p9_conc": (
@@ -354,7 +354,7 @@ REPORT_TEXT = {
 
     "p10_title": "8. Annexes Techniques & Bibliographie",
     "p10_sub1": "Annexe A — Matrice de synthèse OWASP Top 10 <-> Protections Laravel",
-    "p10_sub2": "Annexe B — Validation automatisée par suite de tests PHPUnit 12 (8 tests / 50 assertions)",
+    "p10_sub2": "Annexe B — Validation automatisée par suite de tests PHPUnit 12 (8 tests / 65 assertions)",
     "p10_sub3": "Bibliographie & Webographie Officielle",
 }
 
@@ -1028,13 +1028,23 @@ def build_web_report_html() -> Path:
   figure img { max-width: 100%; height: auto; border: 1px solid #CBD5E1; border-radius: 5px; }
   figcaption { font-size: 11.2px; color: var(--slate-600); font-style: italic; margin-top: 3px; }
   .page-foot { margin-top: 10px; padding-top: 5px; border-top: 1px solid var(--loko-red); display: flex; justify-content: space-between; font-size: 10.5px; color: var(--slate-600); }
-  @page { size: A4; margin: 8mm; }
+  @page { size: A4; margin: 5.5mm 6mm; }
   @media print {
-    body { background: #FFF; font-size: 11.6px; }
+    body { background: #FFF; font-size: 11.0px; line-height: 1.38; }
     .toolbar { display: none !important; }
     .document-container { max-width: 100%; margin: 0; gap: 0; }
-    .page { box-shadow: none; border-radius: 0; padding: 8mm 10mm; page-break-after: always; }
-    .cover-page { padding: 0; min-height: 270mm; }
+    .page { box-shadow: none; border-radius: 0; padding: 6mm 8mm; page-break-after: always; }
+    .cover-page { padding: 0; min-height: 274mm; }
+    h2.chap-title { font-size: 15.5px; margin-bottom: 7px; padding-bottom: 4px; }
+    h3 { font-size: 12.6px; margin: 7px 0 3px; }
+    p { margin-bottom: 5px; }
+    ul, ol { margin-bottom: 5px; }
+    li { margin-bottom: 2px; }
+    table.report-table { font-size: 10.2px; margin: 5px 0; }
+    table.report-table th { padding: 4px 6px; }
+    table.report-table td { padding: 3.5px 6px; }
+    figure { margin: 5px 0; }
+    .page-foot { margin-top: 6px; }
   }
 </style>
 </head>
@@ -1117,7 +1127,7 @@ def build_web_report_html() -> Path:
     <p>__P4_P2__</p>
     __CMP_SQLI__
     <div class="callout-warn"><strong>__P4_CT__ :</strong> __P4_CB__</div>
-    <figure><img src="__SS_U__" alt="Capture SQLi LOKO-Vault" style="max-height:335px;"><figcaption>__P4_FIG__</figcaption></figure>
+    <figure><img src="__SS_U__" alt="Capture Annuaire UT LOKO" style="max-height:335px;"><figcaption>__P4_FIG__</figcaption></figure>
     <div class="page-foot"><span>Module : Base de Données (XAMPP / MariaDB) &amp; Framework Laravel | Prof. M. CAMARA</span><span>Page 4 / 10</span></div>
   </section>
 
@@ -1168,7 +1178,7 @@ def build_web_report_html() -> Path:
     <p>__P8_P2__</p>
     <h3>__P8_SUB3__</h3>
     <p>__P8_P3__</p>
-    <figure><img src="__SA_U__" alt="Atelier 5 LOKO-Vault" style="max-height:345px;"><figcaption>__P8_FIG__</figcaption></figure>
+    <figure><img src="__SA_U__" alt="Capture IDOR Portail UT LOKO" style="max-height:345px;"><figcaption>__P8_FIG__</figcaption></figure>
     <div class="page-foot"><span>Module : Base de Données (XAMPP / MariaDB) &amp; Framework Laravel | Prof. M. CAMARA</span><span>Page 8 / 10</span></div>
   </section>
 
@@ -1176,8 +1186,8 @@ def build_web_report_html() -> Path:
   <section class="page">
     <h2 class="chap-title"><span>__P9_TITLE__</span><span class="author-tag">— __P9_AUTH__</span></h2>
     <p>__P9_P1__</p>
-    <figure><img src="__DB_U__" alt="Schéma BDD MariaDB" style="max-height:215px;"><figcaption>__P9_FIG1__</figcaption></figure>
-    <figure><img src="__SD_U__" alt="Dashboard LOKO-Vault" style="max-height:220px;"><figcaption>__P9_FIG2__</figcaption></figure>
+    <figure><img src="__DB_U__" alt="Schéma BDD MariaDB" style="max-height:168px;"><figcaption>__P9_FIG1__</figcaption></figure>
+    <figure><img src="__SD_U__" alt="Portail Académique UT LOKO" style="max-height:175px;"><figcaption>__P9_FIG2__</figcaption></figure>
     <h3>__P9_SUB__</h3>
     __TBL_ENV__
     <p><strong>__P9_CONC_LEAD__</strong>__P9_CONC__</p>
@@ -1192,7 +1202,7 @@ def build_web_report_html() -> Path:
     <h3>__P10_SUB2__</h3>
     __TBL_TESTS__
     <h3>__P10_SUB3__</h3>
-    <ol style="font-size:11px; line-height:1.35;">__BIB__</ol>
+    <ol style="font-size:10.0px; line-height:1.28;">__BIB__</ol>
     <div class="page-foot"><span>Module : Base de Données (XAMPP / MariaDB) &amp; Framework Laravel | Prof. M. CAMARA</span><span>Page 10 / 10</span></div>
   </section>
 </div>

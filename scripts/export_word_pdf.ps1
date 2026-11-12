@@ -4,10 +4,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$docxPath = Join-Path $root "livrables\office\Rapport_Securite_Laravel_Groupe5.docx"
-$pdfPath = Join-Path $root "livrables\office\Rapport_Securite_Laravel_Groupe5.pdf"
-$webHtml = Join-Path $root "livrables\web-interactif\rapport.html"
-$webPdf = Join-Path $root "livrables\web-interactif\Rapport_Web_Groupe5.pdf"
+$docxPath = [string](Join-Path $root "livrables\office\Rapport_Securite_Laravel_Groupe5.docx")
+$pdfPath = [string](Join-Path $root "livrables\office\Rapport_Securite_Laravel_Groupe5.pdf")
+$tmpPdf = [string](Join-Path $env:TEMP ("loko_word_export_" + $PID + ".pdf"))
+$webHtml = [string](Join-Path $root "livrables\web-interactif\rapport.html")
+$webPdf = [string](Join-Path $root "livrables\web-interactif\Rapport_Web_Groupe5.pdf")
 
 if (-not (Test-Path $docxPath)) {
     throw "Fichier Word introuvable : $docxPath"
@@ -16,30 +17,40 @@ if (-not (Test-Path $docxPath)) {
 $word = $null
 $doc = $null
 try {
+    Write-Host "1. Ouverture de Microsoft Word..."
     $word = New-Object -ComObject Word.Application
-    $word.Visible = $false
+    $word.Visible = $true
     $word.DisplayAlerts = 0
+    $word.AutomationSecurity = 3
+    Write-Host "2. Chargement de $docxPath..."
     $doc = $word.Documents.Open($docxPath, $false, $true)
     $doc.Repaginate()
-    $doc.Fields.Update() | Out-Null
-    foreach ($sec in $doc.Sections) {
-        $sec.Headers.Item(1).Range.Fields.Update() | Out-Null
-        $sec.Footers.Item(1).Range.Fields.Update() | Out-Null
-    }
-    $doc.ExportAsFixedFormat($pdfPath, 17)
-    Write-Host "PDF exporte depuis Word : $pdfPath"
+    $pages = $doc.ComputeStatistics(2)
+    if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
+    Write-Host "3. Export PDF ($pages pages)..."
+    $fmtPdf = [int]17
+    $doc.SaveAs2([ref]$tmpPdf, [ref]$fmtPdf)
 } finally {
     if ($doc) {
-        $doc.Close(0) | Out-Null
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($doc) | Out-Null
+        try {
+            $doc.Saved = $true
+            $doc.Close()
+        } catch {}
+        try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($doc) | Out-Null } catch {}
     }
     if ($word) {
-        $word.Quit(0) | Out-Null
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+        try {
+            $word.Quit()
+        } catch {}
+        try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null } catch {}
     }
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
 }
+
+Copy-Item -Path $tmpPdf -Destination $pdfPath -Force
+Remove-Item $tmpPdf -Force -ErrorAction SilentlyContinue
+Write-Host "4. PDF Office pret : $pdfPath ($((Get-Item $pdfPath).Length) octets)"
 
 if ($IncludeWebPdf) {
     $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
@@ -48,6 +59,6 @@ if ($IncludeWebPdf) {
         $uri = "file:///" + ($webHtml.Replace("\", "/"))
         Start-Process -FilePath $edge -ArgumentList "--headless","--no-sandbox","--disable-gpu","--user-data-dir=$ud","--no-pdf-header-footer","--print-to-pdf=$webPdf",$uri -Wait | Out-Null
         Remove-Item $ud -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "PDF Web exporte depuis rapport.html : $webPdf"
+        Write-Host "5. PDF Web pret : $webPdf ($((Get-Item $webPdf).Length) octets)"
     }
 }

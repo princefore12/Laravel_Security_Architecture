@@ -14,13 +14,14 @@
 
 ## 🛠️ Checklist Technique « Jour J » (5 minutes avant de passer)
 
-1. **Démarrer l'environnement en 1 clic** : Double-cliquer sur `scripts\lancer-demo.bat`.
-   - Vérifie et démarre automatiquement **MariaDB (XAMPP)** sur le port `3306`.
-   - Démarre le serveur Laravel (`http://127.0.0.1:8000`).
-2. **Préparer les 3 onglets du navigateur (plein écran `F11`)** :
+1. **Démarrer l'environnement en 1 clic** : Double-cliquer sur `scripts\lancer-demo.bat` (ou lancer `scripts\reinitialiser-demo.bat` avant un second passage).
+   - Vérifie et démarre **Apache (`:80`)** et **MariaDB (`:3306`)** sous XAMPP, puis crée/seede la base `loko_security_lab`.
+   - Démarre le serveur externe tiers (`http://127.0.0.1:8001`, faux site Bourses d'Excellence) et le **Portail Académique UT LOKO** (`http://127.0.0.1:8000`, façade réaliste sans bouton spoiler).
+2. **Préparer les 4 fenêtres / onglets (plein écran `F11`)** :
    - **Onglet 1** : Le diaporama (`livrables/web-interactif/slides.html` ou PowerPoint `Expose_Securite_Laravel_Groupe5.pptx`).
-   - **Onglet 2** : L'application de démonstration **LOKO-Vault CyberLab** (`http://127.0.0.1:8000`) — cliquer sur **« 🔄 Réinitialiser le Laboratoire »** en haut à droite pour remettre la base MariaDB dans son état initial propre.
-   - **Onglet 3 (optionnel mais très impressionnant)** : `http://localhost/phpmyadmin` ouvert sur la base `loko_security_lab` (tables `users`, `students`, `grades`, `security_logs`).
+   - **Onglet 2** : Le **Portail Académique UT LOKO** (`http://127.0.0.1:8000`) avec `SECURITY_HARDENED=false` dans `.env`.
+   - **Onglet 3** : Le site piège externe (`http://127.0.0.1:8001`) pour l'attaque CSRF de Leyla.
+   - **Onglet 4 + VS Code** : `http://localhost/phpmyadmin` (`loko_security_lab` → tables `users`, `students`, `grades`, `campus_posts`, `security_logs`) et **VS Code** ouvert sur `laravel-security-lab/.env` (ligne 5 : `SECURITY_HARDENED=false`).
 3. **Lancer le chronomètre intégré** : Dans `slides.html`, cliquer sur **« ▶ Démarrer 20:00 »** en bas à droite dès que M. CAMARA donne le top départ.
 
 ---
@@ -30,159 +31,136 @@
 ---
 
 ### 👤 PARTIE 1 — SORE RAMATOU (00:00 → 04:00)
-**Sujets** : Accroche, Architecture de sécurité multicouche de Laravel & **Atelier 1 : Injection SQL (SQLi)**  
-**Slides** : Diapositives 1 à 5
+**Sujets** : Accroche, Architecture de sécurité multicouche de Laravel & **Pilier 1 : Injection SQL (SQLi)**  
+**Slides** : Diapositives 1 à 7
 
 #### 🗣️ Discours (00:00 – 02:15)
 > « Bonjour Monsieur CAMARA, bonjour chers camarades. Nous sommes le **Groupe 5**, composé de **Sore Ramatou, Siby Mody, Boin Naomi, Traoré Charifat Leyla et Djan Kouassi Noël**. Aujourd'hui, nous avons l'honneur de vous présenter le **Thème n° 12 : La sécurité dans une application Laravel**, reliée à une base de données **MySQL / MariaDB sous XAMPP**.
 >
 > Pourquoi ce thème est-il central ? Parce que dans les exposés précédents, nous avons découvert l'architecture MVC, le routage, les contrôleurs, Blade et les migrations. Mais **une application fonctionnelle qui n'est pas sécurisée est une porte ouverte sur sa base de données**. Selon le référentiel mondial **OWASP Top 10**, plus de 70 % des compromissions web ciblent directement la couche applicative et ses requêtes SQL.
 >
-> La philosophie de Laravel tient en un principe : **"Secure by Default"** (sécurisé par défaut). Cependant, comme nous allons le prouver en direct, un développeur qui contourne les mécanismes natifs du framework peut réintroduire des failles critiques.
+> La philosophie de Laravel tient en un principe : **"Secure by Default"** (sécurisé par défaut). Cependant, comme nous allons le prouver en direct, un développeur qui contourne les mécanismes natifs du framework expose immédiatement son application à des attaquants réels.
 >
-> Pour rendre cet exposé concret, notre groupe a développé **LOKO-Vault**, un laboratoire de cybersécurité complet connecté en temps réel à **MariaDB sous XAMPP**, équipé d'un **Inspecteur SQL en direct** et d'un commutateur permettant de comparer, en un clic, le **Code Vulnérable** et le **Code Sécurisé par Laravel**.
+> Pour le prouver devant vous sans simulation artificielle, nous avons construit le **Portail Académique UT LOKO** (`127.0.0.1:8000`) connecté à **MariaDB (XAMPP)** : aucune option de triche à l'écran ! Nous allons l'attaquer **exactement comme de vrais pirates** avec les outils du navigateur (`F12`, barre d'adresse, payloads SQL/XSS et un faux site externe sur `:8001`), puis **Djan Kouassi Noël** activera en direct les défenses natives de Laravel dans `.env` (`SECURITY_HARDENED=true`).
 >
 > Je commence immédiatement avec le **Pilier n° 1 : l'Injection SQL (SQLi)**, la menace la plus directe contre notre base de données. »
 
-#### 💻 Démonstration en direct — Atelier 1 : Injection SQL (02:15 – 04:00)
-1. **Basculer sur l'application LOKO-Vault** → Cliquer sur **« Pilier 1 : Injection SQL (SQLi) »**.
-2. **En 🔴 Mode Vulnérable** :
-   - Montrer le code affiché à droite : `DB::select("SELECT * FROM students WHERE matricule = '$q'")`. Expliquer que la variable `$q` est concaténée directement dans la chaîne SQL.
-   - Cliquer sur le bouton rapide **« ⚡ Payload 1 : Bypass total (`' OR '1'='1`) »** puis **Exécuter**.
-   - **Effet WAHOU** : L'inspecteur SQL montre la requête réellement exécutée par MariaDB (`WHERE matricule = '' OR '1'='1'`). Comme `'1'='1'` est toujours vrai, **tous les dossiers confidentiels et moyennes des étudiants de L3 s'affichent !**
-   - Cliquer ensuite sur **« 💀 Payload 2 : Attaque UNION (Exfiltration table `users`) »**.
-   - **Effet WAHOU** : L'attaquant détourne la requête sur la table `students` pour lire la table `users` (emails, rôles et condensats de mots de passe) !
-3. **Passer en 🟢 Mode Sécurisé (1 clic)** :
-   - Relancer exactement le même payload `' OR '1'='1`.
-   - **Résultat** : **0 résultat trouvé — Attaque bloquée !**
-   - Pointer l'Inspecteur SQL : Laravel (via **Eloquent ORM** et **PDO**) a séparé l'instruction SQL (`WHERE matricule = ?`) des données (`Bindings : ["' OR '1'='1"]`). MariaDB traite désormais l'attaque comme une simple chaîne de texte inoffensive.
-4. **Transition** :
-   > « Protéger la requête SQL de lecture est indispensable, mais que se passe-t-il lorsqu'un attaquant manipule les colonnes écrites en base de données ? Je passe la parole à **Siby Mody** pour le **Mass Assignment**. »
+#### 💻 Démonstration en direct — Pilier 1 : Injection SQL (`SECURITY_HARDENED=false`) (02:15 – 04:00)
+1. **Ouvrir l'onglet « Annuaire »** (`http://127.0.0.1:8000/annuaire`) :
+   - Tapez une simple apostrophe `'` dans le champ *« Matricule ou nom »* → **Effet WAHOU** : avec `APP_DEBUG=true`, Laravel affiche l'exception SQL et la requête complète exécutée contre MariaDB !
+   - Revenez en arrière sur `/annuaire` et collez :
+     `' AND 1=0 UNION SELECT id, email, password, legacy_md5, role FROM users -- `
+     *(espace obligatoire après `-- `)* → **Effet WAHOU** : la table de l'annuaire exfiltre en direct les e-mails, les empreintes **`bcrypt` (`$2y$12$...`)**, l'ancien **`MD5`** (`9c9b18b4...`) et les rôles (`admin`, `student`) !
+2. **Contournement de connexion (Auth Bypass)** :
+   - Cliquez sur **« Se connecter »** (`/connexion`), saisissez **`admin@loko.ci' -- `** avec un mot de passe quelconque (`123456`) → vous entrez directement dans la session **`Prof. M. Camara • Administrateur`** avec le menu **`Administration`** débloqué !
+   - Cliquez sur **Déconnexion** et expliquez comment **Eloquent / PDO (`?`)** corrigera tout cela lors du durcissement `.env`.
+3. **Transition** :
+   > « Protéger la requête SQL de lecture est indispensable, mais que se passe-t-il lorsqu'un étudiant manipule directement le formulaire HTML dans son navigateur (`F12`) pour modifier son rôle en base de données ? Je passe la parole à **Siby Mody** pour le **Mass Assignment**. »
 
 ---
 
 ### 👤 PARTIE 2 — SIBY MODY (04:00 → 08:00)
-**Sujets** : **Atelier 2 : Mass Assignment (Assignation de masse), Escalade de privilèges en BDD & Validation `FormRequest`**  
-**Slides** : Diapositives 6 et 7
+**Sujets** : **Pilier 2 : Mass Assignment (Assignation de masse), Escalade de privilèges en BDD & Validation `FormRequest`**  
+**Slides** : Diapositives 8 et 9
 
 #### 🗣️ Discours (04:00 – 05:45)
 > « Merci Ramatou. Bonjour Monsieur le Professeur, bonjour à tous. Je suis **Siby Mody**, et je vais vous présenter une vulnérabilité redoutable propre aux frameworks ORM modernes comme Eloquent : le **Mass Assignment** (ou assignation de masse) et son impact direct sur l'intégrité de notre base de données MariaDB.
 >
-> Pour accélérer le développement, Laravel permet d'enregistrer ou de mettre à jour une ligne en base en une seule instruction grâce à `$request->all()`. C'est très pratique… mais extrêmement dangereux si le modèle n'est pas verrouillé !
+> Pour accélérer le développement, Laravel permet d'enregistrer ou de mettre à jour une ligne en base en une seule instruction grâce à `$request->all()` ou `forceFill()`. C'est très pratique… mais extrêmement dangereux si le modèle n'est pas verrouillé !
 >
-> Pourquoi ? Dans notre table `users` sous XAMPP, nous avons les colonnes `name`, `email`, `password`, mais aussi une colonne sensible : **`role`** (`student` ou `admin`). Sur le formulaire HTML de profil, seuls le nom et l'email sont affichés. Mais un attaquant peut inspecter la page (F12) ou intercepter la requête HTTP pour **ajouter un champ caché `role=admin`**. Si le contrôleur passe aveuglément `$request->all()` à la base de données, l'étudiant s'auto-octroie les pleins pouvoirs d'administrateur !
->
-> Regardons cette attaque d'escalade de privilèges en direct dans **LOKO-Vault**. »
+> Pourquoi ? Dans notre table `users` sous XAMPP, nous avons les colonnes `name`, `email`, `password`, mais aussi une colonne sensible : **`role`** (`student` ou `admin`). Sur le formulaire HTML de profil, seuls le nom et l'email sont affichés. Mais je vais ouvrir l'inspecteur du navigateur (**`F12`**) comme un attaquant et **injecter moi-même un champ caché `role=admin`** avant de valider ! »
 
-#### 💻 Démonstration en direct — Atelier 2 : Mass Assignment (05:45 – 08:00)
-1. **Ouvrir « Pilier 2 : Mass Assignment & Validation »** dans LOKO-Vault.
-2. **Montrer l'état initial du compte** de **Siby Mody** : badge bleu **`Rôle actuel en BDD : STUDENT (Étudiant L3)`**.
-3. **En 🔴 Mode Vulnérable** :
-   - Pointer le code : `$user->forceFill($request->all())->save()` (ou modèle avec `$guarded = []`).
-   - Cliquer sur le bouton **« 💀 Injecter un champ caché `role=admin` dans la requête HTTP »** puis soumettre.
-   - **Effet WAHOU** : Une alerte critique s'affiche, l'Inspecteur SQL montre `UPDATE users SET name = ?, email = ?, role = 'admin' WHERE id = ?`, et le badge du profil passe en rouge clignotant : **« ⚠️ COMPROMIS : RÔLE PASSÉ À ADMIN EN BASE MARIADB ! »**.
-4. **Cliquer sur « Réinitialiser en Étudiant » puis basculer en 🟢 Mode Sécurisé** :
-   - Tenter exactement la même attaque avec `role=admin`.
-   - **Résultat** : Le nom et l'email sont mis à jour, mais le rôle reste strictement **`student`** !
-   - Expliquer la **double barrière Laravel** visible dans le comparateur de code :
-     1. **Au niveau du Contrôleur (`UpdateProfileRequest`)** : on utilise `$request->validated()`, qui ne laisse passer que les champs explicitement déclarés dans les règles de validation.
-     2. **Au niveau du Modèle Eloquent (`User.php`)** : la liste blanche `protected $fillable = ['name', 'email', 'password'];` interdit à Eloquent de modifier la colonne `role` en masse, même par erreur.
-5. **Transition** :
-   > « Nous avons sécurisé la lecture et l'écriture des colonnes SQL. Mais que se passe-t-il si un étudiant enregistre du code JavaScript piégé dans un champ texte valide comme sa biographie ? **Boin Naomi** vous présente le **Pilier n° 3 : la faille XSS**. »
+#### 💻 Démonstration en direct — Pilier 2 : Mass Assignment via `F12` (05:45 – 08:00)
+1. **Connexion étudiant** sur `/connexion` avec **`mody.siby@loko.ci`** / **`Loko@2026!`**, puis clic sur **`Siby Mody • Étudiant`** → **Mon Profil** (`/profil`). Montrez que seul `name` et `email` sont visibles et que le badge affiche **`Étudiant (student)`**.
+2. **Piratage via DevTools (`F12`)** :
+   - Appuyez sur **`F12` → Éléments (Elements)**, repérez `<form method="POST" action="http://127.0.0.1:8000/profil">`, faites **Clic droit → Edit as HTML**, et ajoutez avant `<button>` :
+     `<input type="hidden" name="role" value="admin">`
+   - Fermez `F12` et cliquez sur **« Enregistrer mes informations »**.
+   - **Effet WAHOU** : la page se recharge, Siby Mody devient **`Administrateur (admin)`**, l'onglet **`Administration`** apparaît dans le menu et **`phpMyAdmin`** confirme `role = 'admin'` dans `users` !
+3. Expliquez la **double barrière Laravel (`UpdateProfileRequest::validated()` + `#[Fillable]` / `$fillable`)** qui bloquera cette manipulation dès la phase de durcissement `.env`, puis cliquez sur **Déconnexion**.
+4. **Transition** :
+   > « Nous venons de voir comment une requête HTTP falsifiée peut corrompre un rôle en base de données. Mais que se passe-t-il si un étudiant publie du code JavaScript piégé sur le mur collaboratif de la fac ? **Boin Naomi** vous présente le **Pilier n° 3 : la faille XSS**. »
 
 ---
 
 ### 👤 PARTIE 3 — BOIN NAOMI (08:00 → 12:00)
-**Sujets** : **Atelier 3 : Cross-Site Scripting (XSS Stocké), Moteur Blade (`{{ }}` vs `{!! !!}`) & En-têtes HTTP (`CSP`)**  
-**Slides** : Diapositives 8 et 9
+**Sujets** : **Pilier 3 : Cross-Site Scripting (XSS Stocké), Moteur Blade (`{{ }}` vs `{!! !!}`) & En-têtes HTTP (`CSP` + `HttpOnly`)**  
+**Slides** : Diapositives 10 et 11
 
 #### 🗣️ Discours (08:00 – 09:45)
 > « Merci Mody. Bonjour à tous. Je suis **Boin Naomi** et j'aborde le **Pilier n° 3 : le Cross-Site Scripting (XSS)** et la protection du moteur de templates **Blade**.
 >
-> Contrairement à l'injection SQL qui attaque le serveur de base de données, la faille **XSS Stockée (Stored XSS)** utilise la base de données MariaDB comme **vecteur de propagation**. L'attaquant enregistre un script JavaScript malveillant dans un champ légitime — par exemple la biographie d'un étudiant ou un commentaire. Dès que l'administrateur ou le professeur consulte la page, le navigateur exécute ce script avec les privilèges de la victime : vol de cookie de session, modification des notes affichées à l'écran ou redirection vers un faux portail UT LOKO.
+> Contrairement à l'injection SQL qui attaque le serveur de base de données, la faille **XSS Stockée (Stored XSS)** utilise la base de données MariaDB (notre table `campus_posts`) comme **vecteur de propagation**. L'attaquant publie une annonce contenant une balise JavaScript malveillante. Dès qu'un professeur ou un étudiant ouvre le **Mur du Campus**, son navigateur exécute ce script — et si le cookie de session n'est pas `HttpOnly`, nous pouvons voler sa session via `document.cookie` !
 >
-> Dans Laravel, tout se joue entre deux syntaxes dans les vues `.blade.php` :
-> - `{!! $variable !!}` affiche la donnée brute **sans aucun filtrage** : c'est la porte ouverte au XSS.
-> - `{{ $variable }}` passe automatiquement la donnée dans la fonction PHP `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, transformant `<` et `>` en entités HTML inoffensives (`&lt;` et `&gt;`).
->
-> Passons tout de suite à la démonstration en direct. »
+> Dans Laravel, tout se joue entre deux syntaxes dans les vues `.blade.php` : `{!! $post->content !!}` (brut, dangereux) contre `{{ $post->content }}` (échappé automatiquement par `htmlspecialchars`). Passons tout de suite à la démonstration réelle sur `/campus`. »
 
-#### 💻 Démonstration en direct — Atelier 3 : XSS Stocké & Blade (09:45 – 12:00)
-1. **Ouvrir « Pilier 3 : Faille XSS & Moteur Blade »**.
-2. **En 🔴 Mode Vulnérable (`{!! $student->bio !!}`)** :
-   - Cliquer sur **« ⚡ Payload XSS : Défiguration & Capture de Session »** puis enregistrer en base MariaDB.
-   - **Effet WAHOU** : L'Inspecteur SQL confirme que le script a été stocké dans la table `students`. À l'affichage de la page, le script s'exécute immédiatement dans la zone de prévisualisation : une bannière pirate rouge apparaît (**« ⚡ EXÉCUTION JS RÉUSSIE : DOM COMPROMIS & JETON CAPTURÉ »**).
-3. **Passer en 🟢 Mode Sécurisé (`{{ $student->bio }}` + CSP)** :
-   - La même biographie issue de MariaDB est maintenant affichée littéralement sous forme de texte (`<div class=...>`), sans aucune exécution !
-   - Montrer le panneau **« En-têtes HTTP de Défense en Profondeur (`SecurityHeadersMiddleware`) »** :
-     - `Content-Security-Policy (CSP)` : interdit l'exécution de scripts inline non autorisés.
-     - `X-Content-Type-Options: nosniff` et `X-Frame-Options: DENY`.
-     - Cookie de session Laravel configuré avec `http_only = true` (invisible pour `document.cookie` en JavaScript).
-4. **Transition** :
-   > « Même si aucun script malveillant ne s'exécute sur notre site, un attaquant peut forcer le navigateur d'un utilisateur connecté à envoyer une requête à son insu depuis un autre site. **Traoré Charifat Leyla** vous explique le **Pilier n° 4 : la faille CSRF**. »
+#### 💻 Démonstration en direct — Pilier 3 : XSS Stocké & Cookies `F12` (09:45 – 12:00)
+1. **Connexion étudiante** (`naomi.boin@loko.ci` / `Loko@2026!`) puis navigation sur **`Mur du Campus`** (`/campus`).
+2. **Preuve dans DevTools (`F12`)** :
+   - Ouvrez **`F12 → Application → Cookies → http://127.0.0.1:8000`** : montrez que la case **`HttpOnly`** de `laravel_session` est **décochée**, puis **`F12 → Network`** (pas d'en-tête `Content-Security-Policy`).
+3. **Exploitation réelle** :
+   - Publiez une annonce avec le contenu :
+     `<img src="x" onerror="alert('XSS UT LOKO ! Cookie volé : ' + document.cookie)">`
+   - **Effet WAHOU** : dès le rechargement de `/campus`, une vraie alerte JavaScript surgit à l'écran et affiche en clair `laravel_session=...` !
+4. Expliquez les 3 barrières activées au durcissement `.env` : **`{{ }}` (`e()`)**, **cookie `HttpOnly = true`** et **`SecurityHeadersMiddleware`** (`Content-Security-Policy: script-src 'self'`, `X-Frame-Options: DENY`).
+5. **Transition** :
+   > « Même si aucun script malveillant ne s'exécute sur notre site, un attaquant peut forcer le navigateur d'un enseignant connecté à envoyer une requête à son insu depuis un autre site. **Traoré Charifat Leyla** vous explique le **Pilier n° 4 : la faille CSRF**. »
 
 ---
 
 ### 👤 PARTIE 4 — TRAORÉ CHARIFAT LEYLA (12:00 → 16:00)
-**Sujets** : **Atelier 4 : Cross-Site Request Forgery (CSRF), Sécurité des Sessions & Jeton `@csrf`**  
-**Slides** : Diapositives 10 et 11
+**Sujets** : **Pilier 4 : Cross-Site Request Forgery (CSRF), Sécurité des Sessions & Jeton `@csrf`**  
+**Slides** : Diapositives 12 et 13
 
 #### 🗣️ Discours (12:00 – 13:45)
 > « Merci Naomi. Bonjour Monsieur CAMARA, bonjour à tous. Je suis **Traoré Charifat Leyla**, et je vais vous présenter le **Pilier n° 4 : le Cross-Site Request Forgery (CSRF)**, ou falsification de requête inter-sites.
 >
-> Le scénario est très fréquent : un enseignant ou un administrateur est connecté sur le portail **LOKO-Vault**. Son navigateur possède donc un cookie de session actif. Sans fermer sa session, il ouvre dans un autre onglet un site externe piégé — par exemple une fausse page de concours ou un lien reçu par email.
+> Le scénario est très fréquent : un enseignant ou un administrateur est connecté sur le **Portail UT LOKO (`http://127.0.0.1:8000`)**. Son navigateur possède donc un cookie de session actif. Sans se déconnecter, il clique sur un lien externe piégé hébergé sur un autre domaine — ici notre second serveur indépendant **`http://127.0.0.1:8001`** déguisé en *Programme National Bourses d'Excellence*.
 >
-> Ce site externe contient un formulaire caché qui pointe vers l'URL de modification des notes de notre application Laravel. Comme le navigateur joint automatiquement le cookie de session aux requêtes vers notre domaine, si Laravel ne vérifie pas **l'origine réelle de l'intention**, la base de données MariaDB exécute l'ordre du pirate !
->
-> Pour contrer cela, Laravel intègre le middleware `ValidateCsrfToken` (anciennement `VerifyCsrfToken`) et la directive Blade `@csrf`. À chaque session, Laravel génère un **jeton cryptographique secret** que le site externe est incapable de deviner. Vérifions-le en direct. »
+> Ce site externe contient un formulaire caché qui poste silencieusement une modification de note vers `:8000`. Pour empêcher cela, Laravel génère un **jeton cryptographique secret `@csrf` (`_token`)** vérifié par `ValidateCsrfToken` (et `DynamicCsrfMiddleware` dans notre démo) à chaque requête d'écriture. Vérifions-le entre nos deux sites en direct ! »
 
-#### 💻 Démonstration en direct — Atelier 4 : CSRF & Site Piège (13:45 – 16:00)
-1. **Ouvrir « Pilier 4 : Faille CSRF & Protection `@csrf` »**.
-2. Montrer à gauche **la note officielle en base MariaDB** (ex. *Base de données & Laravel : 12/20*) et à droite le **Simulateur de Site Externe Piégé (« 🎁 Concours Bourse d'Excellence »)**.
-3. **En 🔴 Mode Vulnérable (Route sans vérification CSRF)** :
-   - Cliquer sur le bouton appât **« 🎁 Réclamer ma récompense »** sur le faux site externe.
-   - **Effet WAHOU** : En arrière-plan, le site piège envoie un `POST` caché (`score=20`). Sans jeton CSRF requis, Laravel accepte la requête : la note dans MariaDB passe frauduleusement à **20/20** à l'insu de l'utilisateur !
-4. **Passer en 🟢 Mode Sécurisé (Middleware `ValidateCsrfToken` + `@csrf`)** :
-   - Cliquer à nouveau sur le piège externe (qui envoie une requête sans jeton `_token` valide) :
-   - **Effet WAHOU** : Laravel intercepte immédiatement la requête avant même de toucher à MariaDB et renvoie le bouclier officiel **HTTP 419 — Page Expired (Token CSRF manquant ou invalide)** !
-   - Effectuer ensuite la modification depuis le **formulaire légitime** contenant `@csrf` (et montrer l'`<input type="hidden" name="_token" value="...">`) : la mise à jour légitime fonctionne parfaitement.
-5. **Transition** :
-   > « Il nous reste enfin à protéger l'authentification des utilisateurs, le chiffrement des mots de passe en base, l'accès aux dossiers privés et la configuration du serveur XAMPP. Je passe la parole à **Djan Kouassi Noël** pour le **5e pilier et la conclusion**. »
+#### 💻 Démonstration en direct — Pilier 4 : CSRF réel depuis `:8001` (13:45 – 16:00)
+1. **Session Admin sur `:8000`** : Connectez-vous avec **`admin@loko.ci`** / **`Camara@Loko2026`**, ouvrez **`Administration`** (`/admin/notes`) et montrez la note de **Traoré Charifat Leyla** (Bulletin `#4` = **`16.00 / 20`**).
+2. **Bascule sur le Site Externe (`http://127.0.0.1:8001`)** :
+   - Appuyez sur `Ctrl + U` (ou `F12`) pour montrer le `<form method="POST" action="http://127.0.0.1:8000/notes/4/modifier">` avec `score=20.00` et **sans `_token`**.
+   - Cliquez sur **« Vérifier mon éligibilité à la Bourse »**.
+   - **Effet WAHOU** : le navigateur joint automatiquement `laravel_session` et la note de Traoré Charifat Leyla passe réellement à **`20.00 / 20`** dans MariaDB !
+3. Rappelez la règle d'or (**pas de mutation sur `GET` + `@csrf` sur tous les formulaires + cookie `SameSite=Lax`** → blocage **HTTP 419 Page Expired** dès la phase `.env`).
+4. **Transition** :
+   > « Il nous reste à protéger l'accès individuel aux bulletins, le hachage des mots de passe, le anti-Brute-Force et à activer en direct le bouclier global Laravel depuis `.env`. Je passe la parole à **Djan Kouassi Noël** pour le **5e pilier et le durcissement final**. »
 
 ---
 
 ### 👤 PARTIE 5 — DJAN KOUASSI NOËL (16:00 → 20:00)
-**Sujets** : **Atelier 5 : Authentification, Hachage `bcrypt`, Contrôle d'accès (`IDOR` / `Policies`), `Rate Limiting`, Hygiène `.env`/XAMPP & Conclusion**  
-**Slides** : Diapositives 12 à 16
+**Sujets** : **Pilier 5 : Authentification, Hachage `bcrypt`, Contrôle d'accès (`IDOR` / `GradePolicy`), `RateLimiter`, Basculement à chaud `.env` (`SECURITY_HARDENED=true`) & Conclusion**  
+**Slides** : Diapositives 14 à 19
 
-#### 🗣️ Discours & Démonstration combinée (16:00 – 19:00)
-> « Merci Leyla. Bonjour Monsieur le Professeur, bonjour chers camarades. Je suis **Djan Kouassi Noël**, et je clôture notre parcours avec le **Pilier n° 5 : Authentification, Cryptographie en base de données, Contrôle d'accès (IDOR) et Durcissement de l'infrastructure XAMPP/Laravel**.
->
-> Même lorsqu'un étudiant est légalement connecté, trois questions critiques se posent :
-> 1. **Comment son mot de passe est-il stocké dans MariaDB ?**
-> 2. **Peut-il consulter le bulletin de notes d'un autre étudiant en changeant simplement l'identifiant dans l'URL (faille IDOR) ?**
-> 3. **Un robot peut-il tester 10 000 mots de passe par minute sur notre formulaire de connexion (Brute-Force) ?** »
+#### 🗣️ Discours & Exploitation IDOR réelle (16:00 – 17:30)
+> « Merci Leyla. Bonjour Monsieur le Professeur, bonjour chers camarades. Je suis **Djan Kouassi Noël**, et je clôture notre parcours avec le **Pilier n° 5 : Cryptographie en base, Contrôle d'accès (`IDOR`), Anti-Brute-Force et Durcissement `.env`**. »
 
-#### 💻 Démonstration en direct — Atelier 5 : IDOR, Bcrypt & Rate Limiting (16:45 – 18:45)
-1. **Ouvrir « Pilier 5 : Auth, Bcrypt, IDOR & Rate Limit »** dans LOKO-Vault :
-   - **Sous-atelier A — Faille IDOR vs Laravel `GradePolicy`** :
-     - Nous sommes connectés en tant qu'**Étudiant #1**.
-     - En **🔴 Mode Vulnérable**, cliquer sur **« 🔍 Tenter d'accéder au relevé privé de l'Étudiant #2 (`/grades/2`) »** : le contrôleur fait un simple `Grade::findOrFail(2)` sans vérifier le propriétaire → **Fuite de données confidentielles !**
-     - En **🟢 Mode Sécurisé**, refaire le même clic : Laravel exécute `$this->authorize('view', $grade)` via notre classe `GradePolicy` (`$grade->student->user_id === $user->id`) → **Bouclier HTTP 403 Forbidden (Accès non autorisé)** !
-   - **Sous-atelier B — Laboratoire de Hachage (`MD5` vs `bcrypt` / `Argon2id`)** :
-     - Tester un mot de passe dans le comparateur : montrer que `MD5` produit toujours le même condensat sans sel (cassable en 0,001s), tandis que `Hash::make()` (ou le cast `'password' => 'hashed'`) génère un hash **`bcrypt` (`$2y$12$...`) de 60 caractères avec un sel aléatoire unique à chaque exécution**.
-   - **Sous-atelier C — Anti-Brute-Force (`RateLimiter`)** :
-     - Cliquer sur **« 🚀 Simuler une attaque Brute-Force (6 tentatives rapides) »** : les 5 premières tentatives échouent normalement, et dès la 6e tentative, la façade `RateLimiter` de Laravel verrouille l'accès avec le code **HTTP 429 Too Many Requests** !
+1. **Exploitation IDOR réelle par l'URL** :
+   - Déconnectez Admin, puis connectez-vous en étudiant simple : **`ramatou.sore@loko.ci`** / **`Loko@2026!`**.
+   - Cliquez sur **`Mes Notes`** : l'URL affiche **`http://127.0.0.1:8000/bulletins/1`** (*Sore Ramatou*).
+   - **Exploit devant la classe** : cliquez simplement dans la barre d'adresse et remplacez `/1` par **`/2`** (`http://127.0.0.1:8000/bulletins/2`) → **Effet WAHOU** : Sore Ramatou consulte librement le relevé confidentiel de **Siby Mody (`16.25 / 20`)** !
+2. **Constat Crypto & Brute-Force** :
+   - Rappelez la fuite SQLi de la Partie 1 : tous les étudiants partageant `Loko@2026!` ont le même `legacy_md5` (`9c9b18b4...`), alors que leurs vrais condensats `bcrypt` (`$2y$12$...`) ont chacun un sel aléatoire de 128 bits.
+   - Sur `/connexion`, montrez que sans `RateLimiter`, on peut enchaîner 6 mauvais mots de passe sans aucun blocage.
 
-#### 🗣️ Bonnes pratiques `.env` / XAMPP & Conclusion générale (18:45 – 20:00)
-> « enfin, sur la diapositive 15, nous rappelons les **3 règles d'or entre Laravel et XAMPP/MySQL** avant toute mise en production :
-> 1. **Protection du fichier `.env`** : ne jamais le versionner sur Git (`.gitignore`), et passer impérativement `APP_DEBUG=false` et `APP_ENV=production` pour ne jamais exposer la trace d'erreur ni les identifiants MySQL aux visiteurs.
-> 2. **Moindre privilège sur MariaDB/XAMPP** : en développement nous utilisons `root` sans mot de passe, mais en production l'application Laravel doit utiliser un utilisateur MySQL dédié ayant uniquement `SELECT, INSERT, UPDATE, DELETE` sur sa base, sans `DROP` ni `GRANT`.
-> 3. **Audit continu** : utiliser `composer audit` pour détecter les failles dans les librairies tierces.
+#### 🛡️ Basculement à chaud `.env` & Preuve des 5 Blocages (17:30 – 19:15)
+> « Regardez maintenant la magie architecturale de Laravel : nous n'allons même pas redémarrer le serveur PHP ! Je bascule simplement `SECURITY_HARDENED=false` vers `true` dans `.env`. »
+
+1. Dans **VS Code (`laravel-security-lab/.env`)**, remplacez **`SECURITY_HARDENED=false`** par **`SECURITY_HARDENED=true`** et faites **`Ctrl + S`** (sans relancer le terminal).
+2. Rejouez les gestes sur le navigateur avec un simple **`F5`** :
+   - **IDOR (`/bulletins/2` comme Sore Ramatou)** + `F5` → **`403 | THIS ACTION IS UNAUTHORIZED`** (`GradePolicy`) !
+   - **XSS (`/campus`)** + `F5` → plus aucune alerte, la balise s'affiche en texte brut (`{{ }}`), **`HttpOnly ✓`** coché dans `F12 → Cookies`, en-tête **`Content-Security-Policy`** présent dans `F12 → Network` !
+   - **Mass Assignment (`/profil`)** → `<input name="role" value="admin">` via `F12` est silencieusement ignoré (`UpdateProfileRequest` + `#[Fillable]`).
+   - **SQLi & Brute-Force (`/annuaire` & `/connexion`)** → `' UNION SELECT` retourne **0 résultat** (PDO `?`), et la 6e erreur de mot de passe renvoie **`HTTP 429 Too Many Requests`** (`RateLimiter`) !
+   - **CSRF (`http://127.0.0.1:8001`)** → le bouton piège déclenche immédiatement **`419 | PAGE EXPIRED`** (`ValidateCsrfToken`) !
+
+#### 🗣️ Bonnes pratiques `.env` / XAMPP & Conclusion générale (19:15 – 20:00)
+> « Enfin, sur les diapositives 17 à 19, nous rappelons les **3 règles d'or entre Laravel et XAMPP/MariaDB** en production : `APP_DEBUG=false` & `APP_ENV=production`, un utilisateur MariaDB dédié limité à `SELECT, INSERT, UPDATE, DELETE` (jamais `root`), et la racine Apache pointée exclusivement sur `/public` avec `composer audit` régulier.
 >
-> **En conclusion** (Diapositive 16), Laravel offre une armure native exceptionnelle contre le Top 10 de l'OWASP — **PDO/Eloquent contre SQLi, `$fillable` et `FormRequest` contre le Mass Assignment, `{{ }}` contre le XSS, `@csrf` contre le CSRF, et `bcrypt`/`Policies`/`RateLimiter` pour le contrôle d'accès** — à une condition essentielle : que le développeur comprenne et respecte l'architecture du framework.
->
-> Nous vous remercions pour votre attention et sommes prêts pour vos questions ! »
+> **En conclusion**, notre suite automatisée **PHPUnit (`PortalSecurityTest` — 8 tests, 65 assertions)** valide en continu ces 5 boucliers. Laravel offre une armure native exceptionnelle contre l'OWASP Top 10, à condition que le développeur en respecte les conventions. Merci pour votre attention, nous sommes prêts pour vos questions ! »
 
 ---
 

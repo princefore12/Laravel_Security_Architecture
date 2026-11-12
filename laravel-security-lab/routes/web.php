@@ -1,45 +1,33 @@
 <?php
 
-use App\Http\Controllers\Lab\AccessControlController;
-use App\Http\Controllers\Lab\CsrfController;
-use App\Http\Controllers\Lab\LabDashboardController;
-use App\Http\Controllers\Lab\MassAssignmentController;
-use App\Http\Controllers\Lab\SqlInjectionController;
-use App\Http\Controllers\Lab\XssController;
+use App\Http\Controllers\Portal\AuthController;
+use App\Http\Controllers\Portal\CampusController;
+use App\Http\Controllers\Portal\DirectoryController;
+use App\Http\Controllers\Portal\GradeController;
+use App\Http\Controllers\Portal\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['lab.local'])->group(function (): void {
-    Route::get('/', [LabDashboardController::class, 'index'])->name('lab.dashboard');
-    Route::post('/lab/reset', [LabDashboardController::class, 'reset'])->name('lab.reset');
+// Portail public UT LOKO
+Route::get('/', [DirectoryController::class, 'home'])->name('portal.home');
+Route::get('/annuaire', [DirectoryController::class, 'index'])->name('portal.directory');
+Route::get('/api/annuaire', [DirectoryController::class, 'api'])->name('portal.api.directory');
+Route::get('/campus', [CampusController::class, 'index'])->name('portal.campus');
 
-    // Pilier 1 : Injection SQL (Sore Ramatou)
-    Route::get('/lab/sqli', [SqlInjectionController::class, 'index'])->name('lab.sqli');
+// Authentification
+Route::get('/connexion', [AuthController::class, 'showLogin'])->name('login');
+Route::post('/connexion', [AuthController::class, 'login'])->name('portal.login.submit');
+Route::post('/deconnexion', [AuthController::class, 'logout'])->name('portal.logout');
 
-    // Pilier 2 : Mass Assignment & FormRequest (Siby Mody)
-    Route::get('/lab/mass-assignment', [MassAssignmentController::class, 'index'])->name('lab.mass-assignment');
-    Route::post('/lab/mass-assignment/vulnerable', [MassAssignmentController::class, 'updateVulnerable'])->name('lab.mass-assignment.vulnerable');
-    Route::post('/lab/mass-assignment/secure', [MassAssignmentController::class, 'updateSecure'])->name('lab.mass-assignment.secure');
-    Route::post('/lab/mass-assignment/reset-role', [MassAssignmentController::class, 'resetRole'])->name('lab.mass-assignment.reset-role');
+// Espace étudiant & administration authentifié
+Route::middleware(['auth'])->group(function (): void {
+    Route::get('/profil', [ProfileController::class, 'edit'])->name('portal.profile');
+    Route::post('/profil', [ProfileController::class, 'update'])->name('portal.profile.update');
 
-    // Pilier 3 : XSS Stocké & Blade + CSP (Boin Naomi)
-    Route::get('/lab/xss', [XssController::class, 'indexVulnerable'])->name('lab.xss.vulnerable');
-    Route::get('/lab/xss/secure', [XssController::class, 'indexSecure'])->middleware('lab.headers')->name('lab.xss.secure');
-    Route::post('/lab/xss/store', [XssController::class, 'store'])->name('lab.xss.store');
-    Route::post('/lab/xss/reset-bio', [XssController::class, 'resetBio'])->name('lab.xss.reset-bio');
+    Route::post('/campus', [CampusController::class, 'store'])->name('portal.campus.store');
 
-    // Pilier 4 : CSRF & Sessions (Traoré Charifat Leyla)
-    Route::get('/lab/csrf', [CsrfController::class, 'index'])->name('lab.csrf');
-    Route::get('/lab/csrf/evil-site', [CsrfController::class, 'evilSite'])->name('lab.csrf.evil');
-    Route::post('/lab/csrf/vulnerable-update', [CsrfController::class, 'updateVulnerable'])->name('lab.csrf.vulnerable-update');
-    Route::post('/lab/csrf/secure-update', [CsrfController::class, 'updateSecure'])->name('lab.csrf.secure-update');
-    Route::post('/lab/csrf/reset-grade', [CsrfController::class, 'resetGrade'])->name('lab.csrf.reset-grade');
+    Route::get('/mes-notes', [GradeController::class, 'myGrade'])->name('portal.my-grades');
+    Route::get('/bulletins/{grade}', [GradeController::class, 'show'])->name('portal.grades.show');
 
-    // Pilier 5 : Auth, Bcrypt, IDOR / Policies & RateLimiter (Djan Kouassi Noël)
-    Route::get('/lab/access-control', [AccessControlController::class, 'index'])->name('lab.access');
-    Route::post('/lab/access-control/actor', [AccessControlController::class, 'switchActor'])->name('lab.access.actor');
-    Route::get('/lab/access-control/vulnerable/grades/{grade}', [AccessControlController::class, 'showGradeVulnerable'])->name('lab.access.grade.vulnerable');
-    Route::get('/lab/access-control/secure/grades/{grade}', [AccessControlController::class, 'showGradeSecure'])->name('lab.access.grade.secure');
-    Route::post('/lab/access-control/hash', [AccessControlController::class, 'compareHash'])->name('lab.access.hash');
-    Route::post('/lab/access-control/rate-limit', [AccessControlController::class, 'attemptLogin'])->name('lab.access.rate-limit');
-    Route::post('/lab/access-control/rate-limit/clear', [AccessControlController::class, 'clearRateLimit'])->name('lab.access.rate-limit.clear');
+    Route::get('/admin/notes', [GradeController::class, 'adminIndex'])->name('portal.admin.grades');
+    Route::post('/notes/{grade}/modifier', [GradeController::class, 'updateScore'])->name('portal.grades.update');
 });

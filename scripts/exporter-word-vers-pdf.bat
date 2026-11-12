@@ -5,7 +5,7 @@ echo   EXPORT DEPUIS WORD (.docx) VERS PDF (.pdf) - GROUPE 5 (UT LOKO)
 echo   Garantit une copie exacte 100 %% identique au document Word edite.
 echo ============================================================================
 echo.
-powershell -ExecutionPolicy Bypass -File "%~dp0export_word_pdf.ps1"
+powershell -NoProfile -InputFormat None -ExecutionPolicy Bypass -File "%~dp0export_word_pdf.ps1"
 if %errorlevel% neq 0 (
     echo [ERREUR] Fermez d'abord le PDF s'il est ouvert dans le navigateur, puis reessayez.
     pause

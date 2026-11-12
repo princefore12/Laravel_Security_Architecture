@@ -1,11 +1,15 @@
 <?php
 
+use App\Http\Middleware\DynamicCsrfMiddleware;
 use App\Http\Middleware\EnsureLocalLabMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Http\Middleware\SyncSecurityModeMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,15 +18,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Exception pédagogique volontaire pour démontrer la faille CSRF sur l'Atelier 4 uniquement
-        $middleware->validateCsrfTokens(except: [
-            'lab/csrf/vulnerable-update',
-        ]);
+        $middleware->web(
+            prepend: [
+                SyncSecurityModeMiddleware::class,
+                EnsureLocalLabMiddleware::class,
+            ],
+            append: [
+                SecurityHeadersMiddleware::class,
+            ],
+            replace: [
+                ValidateCsrfToken::class => DynamicCsrfMiddleware::class,
+            ],
+        );
 
-        $middleware->alias([
-            'lab.local' => EnsureLocalLabMiddleware::class,
-            'lab.headers' => SecurityHeadersMiddleware::class,
-        ]);
+        $middleware->prependToPriorityList(StartSession::class, SyncSecurityModeMiddleware::class);
+        $middleware->appendToPriorityList(StartSession::class, DynamicCsrfMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
